@@ -164,3 +164,41 @@ Comparison commands (committed trees only; working tree noise excluded):
 - **Проверка до коммита (индекс/рабочая копия vs upstream):** `git diff --name-status upstream/main -- apps/desktop` — **без вывода**.
 - **Коммит:** отдельный коммит с сообщением **`chore(studio): restore desktop upstream parity`** на этой ветке. Полный SHA не дублируется в тексте (он меняется при `--amend`); найти: `git log -1 --pretty=%H --grep='restore desktop upstream parity'` или `git log -1 --pretty=%H -- apps/desktop/scripts/prepare-gstreamer.mjs` сразу после выравнивания.
 - **Ограничения соблюдены:** protected core не менялся; `apps/web/`, `mise.toml` не менялись; секреты и untracked не трогались.
+
+---
+
+## 11. Web / tooling drift review
+
+**Read-only анализ (2026-05-12).** Команды: `git diff --name-status upstream/main HEAD -- apps/web mise.toml`, `git diff --stat upstream/main HEAD -- apps/web mise.toml`. Секреты и `.env` / `config.toml` не читались.
+
+**Сводка diff до выравнивания:** `3 files changed, 15 insertions(+), 36 deletions(-)` (на стороне старого `HEAD` меньше строк, чем в `upstream/main` — **отставание от upstream**).
+
+**Проверка merge-base (исторически):** `git diff --stat 7b090f0 HEAD -- apps/web mise.toml` — **пусто** до коммита выравнивания (после `merge-base(upstream/main, HEAD)` коммиты Studio на этой ветке **не меняли** эти пути). Содержимое `apps/web` / `mise.toml` на старом `HEAD` совпадало с **merge-base**; отличия от `upstream/main` — только то, что **upstream** развил файлы после расхождения.
+
+**Поиск намеренного Studio:** в `docs/studio/NATIVE_NEXT_ARCHITECTURE_RECOMMENDATION.md` отмечено, что отличия `apps/web/**` и `mise.toml` в полном `git diff upstream/main HEAD` — это не studio-overlay baseline, а **уход `upstream/main` вперёд** относительно `HEAD`. Отдельных указаний «намеренно сломать/упростить web или выкинуть задачи mise для Studio Jarvis» **не найдено**.
+
+**Классификация:** **A** = нужно Studio Jarvis · **B** = случайный drift · **C** = upstream/vendor drift (у `HEAD` старая версия относительно `upstream/main`) · **D** = требует human review.
+
+| path | upstream difference | likely reason | risk | recommendation | safe to restore from upstream |
+|------|---------------------|---------------|------|----------------|------------------------------|
+| `apps/web/src/pages/bots/components/bot-desktop.vue` | В `upstream/main` у `DisplayPane` добавлен `v-if="props.botId"`; в `HEAD` (как в merge-base) **нет** этого условия. | **C** — защитный рендер добавлен на upstream после merge-base. | **low**–**medium** — без `v-if` панель может монтироваться при пустом/невалидном `botId`. | Взять версию из `upstream/main` при выравнивании web. | **yes** |
+| `apps/web/src/pages/home/components/display-pane.vue` | Крупнее расхождение (~35 строк в stat): upstream — аккуратный таймер fullscreen-иконки (`fullScreenIconTimer` + очистка в `onBeforeUnmount`), групповой импорт иконок; в `HEAD` — вариант с `timeId: unknown`, иным порядком импортов и **без** финальной очистки таймера при размонтировании (как в merge-base). | **C** (и частично **D** по качеству кода на merge-base): улучшения пришли с upstream (линия коммитов вокруг desktop/VNC/display, см. `git log` по файлу). | **medium** — дисплей/WebRTC UX и утечки таймеров. | Выровнять с `upstream/main` целым файлом после ревью hunk’ов. | **yes** (после smoke-теста UI) |
+| `mise.toml` | В `upstream/main` есть три задачи `desktop:gstreamer:prepare*`; в `HEAD` их **нет** (как в merge-base). После выравнивания `apps/desktop` с upstream скрипты `prepare:gstreamer*` в `apps/desktop/package.json` уже есть, а **mise** их не оборачивает — рассинхрон с upstream DX. | **C** — задачи добавлены upstream вместе с desktop/GStreamer линией. | **low** — только dev-эргономика, не runtime сервера. | Восстановить блок задач из `upstream/main` для parity с документацией и desktop. | **yes** |
+
+**Вывод**
+
+- **Намеренное Studio-изменение:** **не похоже** — дифф `merge-base..HEAD` по этим путям пустой; studio-коммиты guardrails/MVP не трогали `apps/web` / `mise.toml`; в документации явной политики «держать старый web/mise» нет.
+- **Upstream drift:** **да** — разумнее **подтянуть** версии из `upstream/main` (тем же способом, что и для `apps/desktop`), затем локально проверить web (дисплей / бот desktop) и при необходимости `pnpm`/`mise` задачи.
+
+### Выровнено с `upstream/main` (фиксация)
+
+- **Дата:** 2026-05-12.
+- **Действие:** `git checkout upstream/main --` для трёх путей:  
+  `apps/web/src/pages/bots/components/bot-desktop.vue`,  
+  `apps/web/src/pages/home/components/display-pane.vue`,  
+  `mise.toml`.
+- **Проверка parity:** `git diff --name-status upstream/main -- apps/web mise.toml` — **без вывода** (индекс/рабочая копия совпадают с `upstream/main` до коммита). После коммита: `git diff --name-status upstream/main HEAD -- apps/web mise.toml` — **без вывода**.
+- **`apps/desktop`:** не менялся (проверка: только перечисленные пути в индексе).
+- **Protected core:** не затрагивался.
+- **Проверки (lint/typecheck web):** **не запускались** — в рабочей копии нет `node_modules` в корне / под `apps/web`, глобально `pnpm`/`mise` не ставились (тот же blocker, что и при выравнивании desktop).
+- **Коммит:** сообщение **`chore(studio): restore web tooling upstream parity`** — полный SHA: `git log -1 --pretty=%H --grep='restore web tooling upstream parity'`.
