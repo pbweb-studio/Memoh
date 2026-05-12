@@ -6,6 +6,16 @@
 
 **Бот:** Web Audit People (provider + chat model заданы пользователем в UI).
 
+### Bundle rollout — Studio Jarvis Native (локальный memohwebaudit, 2026-05-12)
+
+- Создан тестовый бот **`Studio Jarvis Native`** в Web UI (`settings/bots` → New Bot); **chat model:** GPT-5.4 mini. **Memory provider:** в списке доступен только вариант встроенной памяти (см. combobox General); отдельный внешний провайдер в этом стенде не подключался.
+- **Физическое расположение workspace в Docker (инвариант):** на хосте каталог `opt/memoh/data/workspace-data/<bot_id>/` зеркалирует корень workspace агента. Путь UI и агента **`/data/studio/*`** соответствует подкаталогу **`studio/`** в корне этого volume (не `data/studio/`). Аналогично **`/data/skills/...`** — подкаталог **`skills/...`** рядом с `studio/`. Если положить файлы в `.../data/studio/`, агент сообщает «файла нет» — см. rollout 2026-05-12.
+- Шаблоны из `deploy/studio-jarvis-native/data/*` и `skills/*/SKILL.md` размещены в `studio/` и `skills/` для бота `994b7558-a192-4a5a-991d-b6dac6ca647e`.
+- **Web smoke (strict reads, одна сессия, после layout-fix):** вопросы A–E + чтение первых строк `events.example.jsonl`. **Tool trace (UI):** последовательные **Read** — `/data/studio/people.md`, `/data/studio/projects.json`, `/data/studio/chats.json`, `/data/studio/tasks.json`, `/data/studio/events.example.jsonl`; при ранних шагах также отображался **Read** `/data`. Отдельных строк **Use skill** на этих turn в UI-трейсе **не** было (ответы согласованы с файлами и общими правилами источников).
+- **Managed skills в sidebar:** после **Skills → Refresh** в тестовом прогоне сайдбар всё ещё показывал **«No skills yet»**; перечисление четырёх studio-* skills по имени в accessibility tree **не** подтвердилось — **открытый UX/follow-up**, при этом файлы `skills/<name>/SKILL.md` на volume остаются SoT для будущей диагностики.
+- **Rollout Web smoke passed without core changes** — Go/Vue/sqlc/db/migrations не менялись; проверка только Web UI + существующий compose/volume.
+- **Telegram / Schedule / burst:** не выполнялись в этом проходе (без токена и без изменения cron); см. ниже готовые сообщения для пользователя.
+
 ---
 
 ## Сводная таблица
@@ -309,7 +319,10 @@ YOUR_BOT_USERNAME [BURST-C] третье быстрое сообщение
 **Этот прогон (дополнительно):**  
 `List /data`; `Read /data/people.md`; запись факта — обновление `memory/2026-05-12.md` (новая memory-запись).
 
-**Studio registries (этот прогон):**  
+**Studio Jarvis Native bundle (Web smoke, 2026-05-12):**  
+`Read /data/studio/people.md` → `Read /data/studio/projects.json` → `Read /data/studio/chats.json` → `Read /data/studio/tasks.json` → `Read /data/studio/events.example.jsonl` (на отдельных user turns; плюс вопрос об источниках данных без дополнительного Read).
+
+**Studio registries (Web Audit People, ранее в этом документе):**  
 `Use skill web-audit-studio-data` → `Read /data/studio/projects.json` → `Read /data/studio/chats.json` → `Read /data/studio/tasks.json`.
 
 **Session / history:**  
@@ -345,4 +358,4 @@ Schedule runtime + harvester policy: **`Block G`** выше.
 
 ---
 
-*Автоматический коммит не выполнялся.*
+*Документация по bundle rollout smoke: коммит `docs(studio): record native bundle rollout smoke` на ветке `studio/native-baseline-20260512` (только markdown).*

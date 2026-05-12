@@ -6,10 +6,13 @@
 
 **Готовый native bundle (шаблоны данных, skills, runbook, acceptance):** [`deploy/studio-jarvis-native/README.md`](../deploy/studio-jarvis-native/README.md) — **first implementation batch** подготовлен в репозитории **без** правок Memoh core; перенос в workspace бота — вручную по [`RUNBOOK.md`](../deploy/studio-jarvis-native/RUNBOOK.md).
 
+**Docker workspace hint (rollout 2026-05-12):** на локальном compose volume `workspace-data/<bot_id>/` каталоги **`studio/`** и **`skills/`** в **корне** workspace соответствуют путям агента и UI **`/data/studio/`** и **`/data/skills/`**; не класть копии в лишний префикс `data/studio` на диске — иначе `Read /data/studio/...` не находит файлы (зафиксировано в [`NATIVE_RUNTIME_AUDIT_RESULTS.md`](./NATIVE_RUNTIME_AUDIT_RESULTS.md)). **Короткая формулировка:** *workspace folder `studio/*` maps to agent path `/data/studio/*`.*
+
 ---
 
 ## Краткий статус native audit
 
+- **Studio Jarvis Native bundle (Web smoke, 2026-05-12):** после исправления layout — строгие **Read** по `/data/studio/people.md`, `projects.json`, `chats.json`, `tasks.json`, `events.example.jsonl` в одной Web-сессии; **без правок core**. В сайдбаре **Skills** по-прежнему может отображаться **«No skills yet»** при живых `skills/*/SKILL.md` на volume — см. follow-up ниже.
 - **Web (`memohwebaudit`):** people, files, memory, skills; session UI search + ограничения `Search history`; реестры `/data/studio/*.json` + skill — **зафиксированы** в runtime audit.  
 - **Telegram DM** (people/projects/tasks + строгие `projects.json` / `chats.json`) — **runtime passed** (human E2E, Block **E.6**).  
 - **Telegram group MVP** (mention, `/access@bot`, strict `projects.json`, burst; без mention = acceptable default) — **runtime passed** (human E2E, Block **E.8**).  
@@ -33,11 +36,13 @@
 
 ## Что осталось проверить
 
-1. **Heartbeat** — 1–2 реальных цикла + вкладка **Heartbeat** / `/heartbeat logs` ([heartbeat.md](../docs/docs/getting-started/heartbeat.md)).  
-2. **Schedule:** явно выставить **`max_calls`** (UI Run limit или `/schedule` owner), owner-only сценарии slash ([slash-commands.md](../docs/docs/getting-started/slash-commands.md)).  
-3. **Telegram-клиент:** отдельно убедиться, что **`send`** с `platform: "telegram"` из schedule-turn реально доходит в личку/группу (в Block **G** подтверждён только tool-result `delivered: current_conversation`).  
-4. **Studio Control Mini App** — UX-аудит при необходимости (`not tested` в матрице).  
-5. **Raw history / SLA** — только **RFC**, при необходимости MCP/sidecar.
+1. **Skills UI (managed list)** — убедиться, что Web UI перечисляет четыре studio-* skills после Refresh (сейчас возможен рассинхрон: volume OK, сайдбар «No skills yet»).  
+2. **Heartbeat** — 1–2 реальных цикла + вкладка **Heartbeat** / `/heartbeat logs` ([heartbeat.md](../docs/docs/getting-started/heartbeat.md)).  
+3. **Schedule:** явно выставить **`max_calls`** (UI Run limit или `/schedule` owner), owner-only сценарии slash ([slash-commands.md](../docs/docs/getting-started/slash-commands.md)).  
+4. **Telegram-клиент:** отдельно убедиться, что **`send`** с `platform: "telegram"` из schedule-turn реально доходит в личку/группу (в Block **G** подтверждён только tool-result `delivered: current_conversation`).  
+5. **Studio Control Mini App** — UX-аудит при необходимости (`not tested` в матрице).  
+6. **Raw history / SLA** — только **RFC**, при необходимости MCP/sidecar.
+7. **Telegram + Schedule для Studio Jarvis Native** — ручной production rollout по RUNBOOK / ACCEPTANCE (токен, cron), не входили в smoke 2026-05-12.
 
 ---
 
