@@ -202,3 +202,29 @@ Comparison commands (committed trees only; working tree noise excluded):
 - **Protected core:** не затрагивался.
 - **Проверки (lint/typecheck web):** **не запускались** — в рабочей копии нет `node_modules` в корне / под `apps/web`, глобально `pnpm`/`mise` не ставились (тот же blocker, что и при выравнивании desktop).
 - **Коммит:** сообщение **`chore(studio): restore web tooling upstream parity`** — полный SHA: `git log -1 --pretty=%H --grep='restore web tooling upstream parity'`.
+
+---
+
+## 12. Untracked cleanup review
+
+**Read-only классификация (2026-05-12).** Источник: `git status --short` на чистом индексе после parity-коммитов. Секретные файлы (`.env`, `config.toml`, ключи) **не** открывались. Для `.md`/`.sh`/`.py` просмотрены только первые строки (до ~20), достаточные для смысла.
+
+**Категории:** **A** = сохранить и потом закоммитить · **B** = удалить как временный мусор · **C** = оставить локально, не коммитить · **D** = требует решения пользователя.
+
+| path | category | reason | recommended action | safe to delete now |
+|------|----------|--------|-------------------|-------------------|
+| `_deepseek_cleanup_remote.sh` | **D** | Скрипт `docker exec` + SQL к Postgres (`memoh`): массовая чистка/миграция истории; затрагивает данные на сервере/в контейнере. | Не запускать и не удалять без явного решения; вынести из корня репозитория или в `scripts/` только после ревью безопасности. | **no** |
+| `_obey_user_intent_block.md` | **B** | Фрагмент markdown для вставки в `SOUL.md` (правила «Obey User Intent»); дубликат смысла, не часть Memoh. | Удалить после подтверждения, что текст уже не нужен; **не** коммитить как есть. | **yes** (после явного «ок» пользователя) |
+| `_patch_soul_obey_remote.sh` | **D** | Патчит `SOUL.md` внутри **Docker volume** (`/var/lib/docker/volumes/...`); жёстко зашит workspace UUID. | Только ручное решение: хранить вне репо или удалить, если одноразовый. | **no** |
+| `_patch_soul_remote.sh` | **D** | Аналогично: правка `SOUL.md` в volume, побочные бэкапы в том же каталоге. | Как выше. | **no** |
+| `_soul_tool_synthesis_append.md` | **B** | Фрагмент для вставки «Tool Result Synthesis» в `SOUL.md`. | Удалить после подтверждения; не коммитить как продакшен-док. | **yes** (после явного «ок») |
+| `_verify_soul_obey.sh` | **C** | Только чтение/диагностика `SOUL.md` в volume (`head`, `grep`, `ls` бэкапа). | Можно держать локально для отладки; не коммитить с хардкодом путей. | **unknown** (без решения владельца) |
+| `_verify_soul_remote.sh` | **C** | То же — проверка секций в `SOUL.md`. | Как выше. | **unknown** |
+| `cmd/bridge/template/SOUL.md.bak-20260509-pre-web-fresh` | **B** / **C** | Резервная копия шаблона `SOUL.md` (содержимое похоже на шаблон «Core Truths»); не в git. | Сравнить с текущим `SOUL.md` в репо; если расхождений нет — удалить или перенести вне дерева. | **yes** (после сравнения с шаблоном в git) |
+| `internal/workspace/templates/SOUL.md.bak-20260509-pre-web-fresh` | **B** / **C** | Дубликат бэкапа в другом шаблонном пути. | Как для `cmd/bridge/...bak`. | **yes** (после сравнения) |
+| `scripts/deepseek_vision_probe.py` | **C** / **D** | Локальный probe API DeepSeek (ключ только через env; в шапке предупреждение не коммитить ключ). | Либо оформить отдельным осмысленным PR в `scripts/`, либо держать только локально / удалить. | **unknown** |
+
+**Итог**
+
+- **Полезного для обязательного коммита в Memoh/Studio baseline:** **ничего** из списка — всё внешнее/временное или с хардкодом окружения.
+- **Protected core:** в этом шаге **не изменялся** (только read-only обзор и правка этого markdown).
