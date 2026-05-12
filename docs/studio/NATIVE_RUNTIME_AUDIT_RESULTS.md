@@ -1,8 +1,8 @@
 # Native runtime audit — Web + Telegram DM + Telegram group (`memohwebaudit`)
 
-**Дата:** 2026-05-12 (обновлено: blocks A–F; Telegram bind + **Telegram DM human E2E** + **Telegram group human E2E** + docs-only Schedule/Heartbeat)  
+**Дата:** 2026-05-12 (обновлено: blocks A–G; Telegram bind + **Telegram DM/group E2E** + **Schedule runtime** + docs Heartbeat)  
 **Ветка:** `studio/native-baseline-20260512`  
-**Окружение:** Docker compose project `memohwebaudit`, Web UI `http://127.0.0.1:8082`, изолированный `.local-web-audit/`. Go/Vue не менялись, deploy не выполнялся под этот аудит. **Telegram DM/group:** автоматизация агента без Telegram-клиента не прогоняет чаты; **DM и группа** ниже — **ручной** runtime пользователя на том же baseline.
+**Окружение:** Docker compose project `memohwebaudit`, Web UI `http://127.0.0.1:8082`, изолированный `.local-web-audit/`. Go/Vue не менялись, deploy не выполнялся под этот аудит. **Telegram DM/group:** **ручной** runtime пользователя. **Schedule runtime (2026-05-12):** Web UI + read-only проверка БД; вход в Web — **локальный дефолтный** учётная запись из upstream **README** (только для dev-стенда, не для прод).
 
 **Бот:** Web Audit People (provider + chat model заданы пользователем в UI).
 
@@ -28,6 +28,7 @@
 | studio JSON registries | projects/chats/tasks в `/data/studio/*.json` + skill | Pass | См. **Block B** | files/skills/memory | **Нет** | |
 | workspace Files write (UI) | Upload / New Folder / Monaco Save | Pass (UI) | Три JSON загружены через **Upload**; папки `studio/`, `skills/web-audit-studio-data/` через **New Folder**; `SKILL.md` загружен | Native Files (док files.md) | **Нет** | Агентский **Write** файлов в этом прогоне не вызывали (нужен отдельный тест без порчи JSON) |
 | MCP / sidecar necessity | Внешний registry vs workspace | Doc + gap | См. **Block C** | MCP опционально; sidecar — при внешнем API | **Нет** | |
+| Schedule runtime (cron → agent) | Тест `ScheduleAuditNative`: digest из `/data/studio/projects.json` + `tasks.json` | **Pass** | См. **Block G** — сессии `schedule` в UI; `read` обоих JSON; доставка через tool `send` | **native with config** | **Нет** | **Old harvester / custom cron** для MVP **не** восстанавливать (см. матрицу) |
 
 ---
 
@@ -238,19 +239,65 @@ YOUR_BOT_USERNAME [BURST-C] третье быстрое сообщение
 
 ---
 
-## Block F — Schedule / Heartbeat (только по документации, без runtime)
+## Block F — Schedule / Heartbeat: справка по документации (baseline)
 
 Источники: [schedule.md](../docs/docs/getting-started/schedule.md), [heartbeat.md](../docs/docs/getting-started/heartbeat.md), [sessions.md](../docs/docs/getting-started/sessions.md), [slash-commands.md](../docs/docs/getting-started/slash-commands.md).
 
 | Вопрос | Вывод по докам |
 |--------|----------------|
-| Можно ли штатно сделать **daily digest**? | **Да:** **Schedule** с cron (`pattern`, например `0 9 * * *`) и полем **`command`** — произвольная NL-инструкция агенту; создание через UI **Schedule**, разговор с ботом (schedule tool) или `POST /api/bots/{bot_id}/schedule`. |
-| Какие **inputs** нужны digest'у? | По смыслу задачи: **Memory** (общая для бота), **Files** (`/data/studio/*.json`, `people.md`), **tasks/projects** из JSON, при необходимости web search / MCP — всё доступно агенту в **turn** по той же модели, что и обычный чат. |
-| Можно ли отправлять digest **в Telegram** штатно? | В [schedule.md](../docs/docs/getting-started/schedule.md) указано: результаты могут доставляться в **любой подключённый канал**; в примере `command` явно фигурирует формулировка про отправку в Telegram. Значит **MVP закрывается документированно** без custom cron вне Memoh. |
-| Что тестировать **отдельно** (runtime)? | Факт срабатывания cron в вашем timezone (`timezone` в конфиге сервера, по умолчанию UTC); что именно бот отправил в Telegram/Web; лимиты `max_calls`; права **owner-only** на `/schedule create` и т.д. ([slash-commands.md](../docs/docs/getting-started/slash-commands.md)). |
-| Нужен ли **custom cron / внешний harvester**? | **По умолчанию нет:** Schedule + Heartbeat покрывают периодику; Heartbeat — фиксированный интервал и «routine» промпт ([heartbeat.md](../docs/docs/getting-started/heartbeat.md)), Schedule — точное время и **кастомная** команда. Внешний harvester имеет смысл только при интеграции вне Memoh (отдельный RFC / sidecar). |
+| **Schedule vs Heartbeat** | **Schedule:** cron `pattern` + произвольный NL **`command`** (точечные задачи, в т.ч. digest). **Heartbeat:** фиксированный **interval** (минуты), общий «routine» промпт, без отдельной cron-строки на задачу ([heartbeat.md](../docs/docs/getting-started/heartbeat.md), таблица в [schedule.md](../docs/docs/getting-started/schedule.md)). |
+| **Daily digest** | Для **календарного** digest логичнее **Schedule** (`0 9 * * *` и т.д.). **Heartbeat** — для периодического «осмотра», мониторинга, напоминаний в свободной форме, но **не** замена явному cron-командному digest без доп. промпт-инженерии. |
+| **MVP без custom harvester** | **Да:** штатный cron Memoh + агент с files/skills/memory (см. **Block G** runtime). |
+| **Timezone** | По доке cron считается в **`timezone` сервера**, по умолчанию **UTC** ([schedule.md](../docs/docs/getting-started/schedule.md)). |
+| **Что проверить runtime позже** | **Heartbeat:** одна-две итерации с осмысленным промптом, вкладка **Heartbeat** / `/heartbeat logs`; **Schedule:** `max_calls`, owner-only `/schedule create` ([slash-commands.md](../docs/docs/getting-started/slash-commands.md)); отдельная проверка **реального** сообщения в Telegram-клиенте (не только `send` tool). |
 
-**Связь с сессиями:** при срабатывании создаётся тип сессии **`schedule`** / **`heartbeat`** — их видно в списке сессий ([sessions.md](../docs/docs/getting-started/sessions.md)); логи heartbeat — вкладка **Heartbeat** и slash `/heartbeat` ([slash-commands.md](../docs/docs/getting-started/slash-commands.md)).
+**Связь с сессиями:** типы **`schedule`** и **`heartbeat`** в списке сессий ([sessions.md](../docs/docs/getting-started/sessions.md)).
+
+---
+
+## Block G — Schedule runtime (`memohwebaudit`, Web UI + read-only DB evidence, 2026-05-12)
+
+**Бот:** Web Audit People (`bot_id` в URL настроек совпадает с чатом). **Код не менялся.**
+
+### G.1 Создание задачи (UI)
+
+| Поле | Значение |
+|------|----------|
+| Имя | `ScheduleAuditNative` |
+| Описание | маркер native audit (несекретно) |
+| Instruction | NL: маркер **`ScheduleAuditNative`**, прочитать **`/data/studio/projects.json`** и **`/data/studio/tasks.json`**, короткий digest только из JSON, ответ начать с строки `ScheduleAuditNative digest`, без выдумывания |
+| Расписание (UI) | **Every N minutes** = **2** → в списке задач отображается как cron **`*/2 * * * *`** |
+| `max_calls` | В UI **не** выставлен (поле Run limit в форме не зафиксировано явным числом в этом прогоне) |
+| `enabled` | **true** при создании |
+
+### G.2 Срабатывание и сессии
+
+- В Web UI (**Sessions** → фильтр **From: Scheduled Task**) появились сессии вида **«Untitled Session … Scheduled Task»** (минимум **две** видимые итерации cron).  
+- В Postgres (`bot_sessions`, `bot_id` бота аудита, `type = 'schedule'`) зафиксированы **3** срабатывания с `created_at` в **UTC** (`2026-05-12 13:22 / 13:24 / 13:26+00`), что согласуется с докой про **UTC по умолчанию**.
+
+### G.3 Исполнение агента (read-only `bot_history_messages`, последняя `schedule`-сессия)
+
+Упорядочено по смыслу turn (без вывода полного JSON):
+
+1. **User** (schedule `command`): полный текст инструкции с маркером `ScheduleAuditNative`.  
+2. **Assistant → tool `read`:** `/data/studio/projects.json` и `/data/studio/tasks.json`.  
+3. **Tool results:** содержимое файлов (в т.ч. проект **AuditNative** / `audit-native`, задача **Prepare native audit summary** / `@grvtkv`).  
+4. **Assistant → tool `send`:** первая попытка digest **без** поля `platform` → **ошибка** `platform is required`.  
+5. **Assistant → tool `send`:** повтор **с** `platform: "telegram"` → результат tool: **`ok: true`**, `delivered: "current_conversation"` (т.е. штатный канал доставки текущего контекста; **отдельная** проверка «пришло ли в приложение Telegram» в этом прогоне **не** выполнялась).
+
+**Вывод по файлам:** агент **реально** прочитал оба JSON (не только memory).
+
+### G.4 Классификация digest / harvester
+
+| Тема | Классификация |
+|------|----------------|
+| Daily digest MVP | **native with config:** UI **Schedule** + NL `command` + агент с **Files** |
+| **Old task harvester / custom cron** (Studio archive) | **Do not restore for MVP**, пока штатный **Schedule** закрывает сценарий (**Block G**). Пересмотр — только если появится **явное** требование, которое **нельзя** закрыть связкой **Schedule / Heartbeat / MCP / sidecar** (вне core). |
+
+### G.5 Очистка тестовой задачи
+
+- После фиксации evidence строка в таблице **`schedule`** для этой задачи **удалена** одним `DELETE` в Postgres (**корректно каскадит** `schedule_logs`), чтобы **остановить** `*/2` и не копить мусор.  
+- **Штатный путь для оператора:** в Web-чате от owner — slash [`/schedule delete ScheduleAuditNative`](../docs/docs/getting-started/slash-commands.md) или удаление строки в UI **Schedule**, если кнопка доступна (в автоматизированном snapshot кнопка **Delete** в таблице не была найдена по тексту).
 
 ---
 
@@ -274,6 +321,9 @@ UI: фильтр сессий по строке поиска; агент: **`Sea
 **Telegram group (human E2E, см. E.8):**  
 MVP (mention, `/access@bot`, strict `projects.json`, burst) — **pass**; без mention до ответа — **acceptable default**; legacy inbound / **ModeQueue custom** — **не** восстанавливать по этому результату.
 
+**Schedule (runtime, см. G):**  
+Cron `*/2 * * * *` → сессии типа **`schedule`**; агент: **`read`** `projects.json` + `tasks.json` → **`send`** (после уточнения `platform`).
+
 ---
 
 ## Выводы для планирования
@@ -282,14 +332,16 @@ MVP (mention, `/access@bot`, strict `projects.json`, burst) — **pass**; без
 2. **Telegram** — **Platforms** + adapter (**Block E**). **DM** (**E.6**) и **группа** (**E.8**) — **подтверждены** human E2E: group MVP = **mention + ACL + files/skills/memory**; burst нативный — **достаточно**. После чувствительных тестов по-прежнему разумно **revoke/regenerate** токена в BotFather и обновить credentials в Memoh.  
 3. **Cross-session** для бота в Web подтверждён и для people lookup, и для явно сохранённого факта (через агентское обновление memory-файла).
 4. **Projects/chats/tasks** — держать в **`/data/studio/*.json` + skill**; memory — только дополнение; см. `STUDIO_RESTORE_DECISION_MATRIX.md`.
-5. **Поиск по истории** — использовать **UI session search** и/или **Search history**; для критичных маркеров — **Memory или SoT-файл**; sidecar — только по RFC.
+5. **Поиск по истории** — использовать **UI session search** и/или **Search history**; для критичных маркеров — **Memory или SoT-файл**; sidecar — только по RFC.  
+6. **Schedule / digest** — **Block G:** штатный UI Schedule + cron **работают**; digest по JSON через **read** подтверждён; **harvester/custom cron** из archive для MVP **не** возвращать. **Heartbeat** — см. **Block F** (доки); отдельный runtime heartbeat и `max_calls` у schedule — по желанию.
 
 ---
 
 ## Block D — Consolidated pointer
 
 Итоговая матрица «что возвращать / что нет»: **`STUDIO_RESTORE_DECISION_MATRIX.md`**.  
-Целевая архитектура native-first Studio: **`NATIVE_NEXT_ARCHITECTURE_RECOMMENDATION.md`**.
+Целевая архитектура native-first Studio: **`NATIVE_NEXT_ARCHITECTURE_RECOMMENDATION.md`**.  
+Schedule runtime + harvester policy: **`Block G`** выше.
 
 ---
 

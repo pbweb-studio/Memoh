@@ -1,8 +1,8 @@
 # Studio restore — decision matrix (native baseline)
 
 **Ветка:** `studio/native-baseline-20260512`  
-**Контекст:** чистый native baseline; people identity и **Telegram DM + group MVP** закрыты через **Skills + Files + Memory** + Platforms + ACL; core-touch и возврат Studio custom из archive **не** предполагаются без отдельного решения.  
-**Доказательства runtime (Web + Telegram DM + Telegram group, `memohwebaudit`):** см. [`NATIVE_RUNTIME_AUDIT_RESULTS.md`](./NATIVE_RUNTIME_AUDIT_RESULTS.md).
+**Контекст:** чистый native baseline; people identity и **Telegram DM + group MVP** и **Schedule cron digest** закрыты через **Skills + Files + Memory** + Platforms + ACL; core-touch и возврат Studio custom из archive **не** предполагаются без отдельного решения.  
+**Доказательства runtime (Web + Telegram DM + Telegram group + **Schedule cron**, `memohwebaudit`):** см. [`NATIVE_RUNTIME_AUDIT_RESULTS.md`](./NATIVE_RUNTIME_AUDIT_RESULTS.md).
 
 Легенда колонки **Native result:** `native` | `native with config` | `files/skills/memory` | `MCP` | `sidecar` | `thin overlay` | `not tested` | `do not restore`
 
@@ -22,7 +22,9 @@
 | People/projects/tasks **via Telegram DM** | files/skills/memory | SoT JSON + skills; memory — дополнение | **Нет** | **Нет** | Block E.6 | То же, что Web-аудит, другой транспорт |
 | Telegram group / mention / access / strict JSON / burst | **native with config** + files/skills/memory | Mention + ACL + штатный adapter + workspace | **Нет** | **Нет** | Block **E.8** (human E2E) | Без mention — **acceptable** default (`discuss`); см. `NATIVE_RUNTIME_AUDIT_RESULTS.md` |
 | Telegram group routing / legacy **ModeQueue** custom | **do not restore** для MVP | Нативный burst в E.8 — порядок ответов нормальный | **Нет** | **Нет** | Block E.8 | Custom ModeQueue из archive — **не** возвращать по этому аудиту |
-| daily digest / schedule | native with config (док) + **docs-only OK for MVP** | Schedule + heartbeat сессии (доки); см. Block F `NATIVE_RUNTIME_AUDIT_RESULTS.md` | **Нет** | **Нет** | schedule.md, heartbeat.md, sessions.md | Runtime cron/Telegram доставку — отдельно при желании |
+| daily digest / **Schedule** cron | **native with config** + files/skills/memory (runtime **Pass**, Block **G**) | UI **Schedule** + NL `command`; сессии типа `schedule` | **Нет** | **Нет** | Block **G** + schedule.md | `max_calls` / slash owner — см. pending в Block F |
+| Heartbeat (autonomous interval) | native with config (док) + **runtime не гоняли** | Heartbeat tab; `/heartbeat` ([slash-commands.md](../docs/docs/getting-started/slash-commands.md)) | **Нет** | **Нет** | heartbeat.md, Block F | Для digest предпочтительнее **Schedule** |
+| old **task harvester** / **custom cron** (Studio archive) | **do not restore** для MVP | Заменено штатным **Schedule** + при необходимости **Heartbeat** / MCP | **Нет** | Только явное требование вне Schedule+Heartbeat+MCP (**RFC**) | Block **G** | Пересмотр — если требование **нельзя** закрыть штатными средствами |
 | files/workspace registry | native | Files tab, Monaco save, upload | **Нет** | **Нет** | files.md + UI upload/folder | |
 | MCP filesystem | MCP (опционально) | MCP stdio `server-filesystem` (док mcp.md) | **Нет** (если хватает встроенных Files) | **Нет** | mcp.md | Нужен для внешнего корня / интеграций |
 | Studio sidecar | sidecar (опционально) | Отдельный сервис + remote MCP / API | **Нет** | **Нет** | workspace-backends.md + продуктовая необходимость | Если registry должен жить вне workspace |
@@ -37,8 +39,7 @@
 - **old Go people resolver:** **do not restore.**  
 - **old db/sqlc/store patches:** **do not restore** unless a **separate RFC** proves raw-history/SLA/registry needs that cannot be met with files/Memory/MCP.  
 - **old inbound/channel patches:** **do not restore** для **DM и group MVP** (подтверждено **E.6–E.8**). Возврат — **только** при **явном** продуктовом требовании: пассивное прослушивание **всех** сообщений группы без mention и/или отдельная **жёсткая** семантика очереди вне штатного поведения (**RFC**).  
+- **old task harvester / custom cron (archive):** **do not restore** для MVP при работающем **Schedule** (Block **G**). Пересмотр — только при явном требовании, не закрываемом **Schedule + Heartbeat + MCP/sidecar** (**RFC**).  
 - **memory context packer hooks:** **do not restore** for people/project lookup — закрывается провайдером памяти и файловыми SoT.
-
----
 
 *Автокоммит не выполнялся.*
