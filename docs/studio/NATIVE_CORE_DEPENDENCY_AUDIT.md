@@ -228,3 +228,11 @@ Comparison commands (committed trees only; working tree noise excluded):
 
 - **Полезного для обязательного коммита в Memoh/Studio baseline:** **ничего** из списка — всё внешнее/временное или с хардкодом окружения.
 - **Protected core:** в этом шаге **не изменялся** (только read-only обзор и правка этого markdown).
+
+### Cleanup completed (2026-05-12)
+
+- **Untracked cleanup completed** — рабочее дерево очищено от перечисленных выше артефактов.
+- **`.bak` duplicates removed** — удалены: `cmd/bridge/template/SOUL.md.bak-20260509-pre-web-fresh`, `internal/workspace/templates/SOUL.md.bak-20260509-pre-web-fresh` (дубликаты по смыслу относительно канонических `SOUL.md` в тех же каталогах; отличались только EOL/пробелами).
+- **Local ops/probe files moved outside repo** → `C:\AI\_local-ops-archive\memoh\`: `_deepseek_cleanup_remote.sh`, `_patch_soul_obey_remote.sh`, `_patch_soul_remote.sh`, `_verify_soul_obey.sh`, `_verify_soul_remote.sh`, `deepseek_vision_probe.py` (перенесён из `scripts/`; скрипты не запускались).
+- **`git status --short` clean** — после операций вывод пустой.
+- **Protected core untouched** — изменений в `internal/**`, `cmd/agent`, миграциях и т.п. не было.
