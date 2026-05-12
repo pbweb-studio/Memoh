@@ -1,8 +1,8 @@
-# Native runtime audit — Web-only (`memohwebaudit`)
+# Native runtime audit — Web + Telegram DM + Telegram group (`memohwebaudit`)
 
-**Дата:** 2026-05-12 (обновлено тем же прогоном: blocks A–D)  
+**Дата:** 2026-05-12 (обновлено: blocks A–F; Telegram bind + **Telegram DM human E2E** + **Telegram group human E2E** + docs-only Schedule/Heartbeat)  
 **Ветка:** `studio/native-baseline-20260512`  
-**Окружение:** Docker compose project `memohwebaudit`, Web UI `http://127.0.0.1:8082`, изолированный `.local-web-audit/`. Go/Vue не менялись, deploy не выполнялся, реальный Telegram не подключался.
+**Окружение:** Docker compose project `memohwebaudit`, Web UI `http://127.0.0.1:8082`, изолированный `.local-web-audit/`. Go/Vue не менялись, deploy не выполнялся под этот аудит. **Telegram DM/group:** автоматизация агента без Telegram-клиента не прогоняет чаты; **DM и группа** ниже — **ручной** runtime пользователя на том же baseline.
 
 **Бот:** Web Audit People (provider + chat model заданы пользователем в UI).
 
@@ -22,7 +22,9 @@
 | cross-session people lookup | New Session → «Кто такой @grvtkv?» без перезагрузки файла | Pass | Ответ: Егор Вотяков; file tool rows в снимке отсутствуют | Native memory / shared bot context | **Нет** | Skills/files бота остаются доступны боту между сессиями |
 | cross-session new fact recall | Сессия A: «Запомни: AuditNative ↔ @grvtkv»; сессия B: вопрос о человеке проекта | Pass | Сессия A: UI trace обновления `memory/2026-05-12.md` (+ новая запись); сессия B: ответ `@grvtkv` | Native memory write + cross-session read | **Нет** | |
 | raw cross-chat search gap | Поиск по сырой истории vs memory | Partially characterized | См. **Block A** ниже: UI search + agent `Search history`; ограничение по точному токену | Native UI + native agent tool; семантика vs memory — см. memory.md | **Нет** | Полный «продуктовый FTS по всем чатам» не формализован отдельной строкой в этом документе |
-| Telegram group runtime | Реальная группа, токен BotFather, inbound/outbound | Not tested | Намеренно не запускали | Documented native; runtime N/A here | **Нет** | Только по `docs/channels/telegram.md` + план |
+| Telegram group runtime (E2E) | Группа: без mention / mention / access / strict JSON / burst | **Pass (human)** | См. **Block E.8** (выполнение по плану **E.7**) | **native with config** + files/skills/memory | **Нет** | Без mention до ответа — **acceptable / default** для группы (`discuss`), если нет отдельного product requirement «слушать всё» |
+| Telegram UI bind (adapter) | Platforms → Telegram → Save and enable | Pass | UI **Telegram Active**; в БД строка `telegram`, `disabled=false` | native with config | **Нет** | См. **Block E**; секрет не логировать |
+| Telegram DM/Q&A (E2E) | Личка: people/projects/tasks + строгие чтения JSON | **Pass (human)** | См. **Block E.6** — ответы совпали с Web-аудитом (skills/files/memory) | native with config + files/skills/memory | **Нет** | Старые inbound/channel patches для DM/basic lookup **не** восстанавливать |
 | studio JSON registries | projects/chats/tasks в `/data/studio/*.json` + skill | Pass | См. **Block B** | files/skills/memory | **Нет** | |
 | workspace Files write (UI) | Upload / New Folder / Monaco Save | Pass (UI) | Три JSON загружены через **Upload**; папки `studio/`, `skills/web-audit-studio-data/` через **New Folder**; `SKILL.md` загружен | Native Files (док files.md) | **Нет** | Агентский **Write** файлов в этом прогоне не вызывали (нужен отдельный тест без порчи JSON) |
 | MCP / sidecar necessity | Внешний registry vs workspace | Doc + gap | См. **Block C** | MCP опционально; sidecar — при внешнем API | **Нет** | |
@@ -127,6 +129,131 @@
 
 ---
 
+## Block E — Telegram runtime (`memohwebaudit`, 2026-05-12)
+
+### E.1 Документация
+
+Шаги подключения — [telegram.md](../docs/docs/channels/telegram.md): Bot Detail → **Platforms** → **Add Channel** / **Add Platform** → **Telegram** → вставить **API Token** → **Save and Enable** (в UI кнопка **Save and enable**).
+
+### E.2 Что сделано локально (без вывода секрета)
+
+- Стек **memohwebaudit** (Web `127.0.0.1:8082`, server, postgres) — **Up**.
+- Бот **Web Audit People** (UUID из БД не секретный; в отчёт **не** включали токен).
+- В Web UI на вкладке **Platforms** добавлена платформа **Telegram**, credentials введены **только в форме UI**, сохранено **Save and enable**.
+- **Проверка Telegram Bot API (вне Memoh):** `getMe` → `ok=true`, публичное имя бота `@Jarvispbw_bot` (это публичный username из API, не секрет). Локальные файлы с копией токена для автоматизации **удалены** после шага (в репозиторий не коммитились).
+
+### E.3 Состояние в Memoh после bind
+
+- В UI отображается **Telegram — Active**.
+- В Postgres (`bot_channel_configs`): тип канала `telegram`, `disabled=false`, `verified_at` на момент проверки был **NULL** (флаг verified может заполняться позже в зависимости от логики продукта — не интерпретировали как сбой).
+
+### E.4 Что **не** прогоняет автоматизация агента
+
+**DM** и **группа** из Cursor не дублировались: результаты — **ручной** runtime пользователя (**E.6** — DM, **E.8** — группа).
+
+### E.5 Studio MVP vs старые inbound / channel / ModeQueue custom
+
+На основании **штатного** Telegram через **Platforms**, **DM E2E** (**E.6**) и **group E2E** (**E.8**):
+
+- **Studio MVP (DM + группа)** закрывается **mention + ACL + files/skills/memory** на нативном адаптере; **Go не трогали**.  
+- **Старые inbound/channel patches не возвращать** для **DM / group MVP** (включая mention-Q&A, strict file source, burst) — gap не выявлен.  
+- **Старый ModeQueue custom не возвращать** по результатам burst (**E.8**): три ответа подряд, порядок нормальный — **нативное** поведение приемлемо.  
+- **Переоценка inbound/legacy queue** — только при **явном** продуктовом требовании: например, **пассивное** прослушивание **всех** сообщений группы без mention или **жёсткая** отдельная семантика очереди, которую штатный путь не закрывает (отдельное ТЗ / RFC).
+
+Сообщение в группе **без mention**, на которое бот **не** отвечает до явного mention, классифицируем как **ожидаемое / допустимое** поведение в духе **`discuss`** ([sessions.md](../docs/docs/getting-started/sessions.md)) — безопасный default, если нет отдельного требования «отвечать на всё».
+
+### E.6 — Telegram DM runtime evidence (human E2E, baseline `memohwebaudit`)
+
+Проверено пользователем в **личке** с ботом, подключённым через **Platforms → Telegram** (тот же baseline, без возврата Studio custom из archive). Секреты и токены в документ **не** включаются.
+
+| # | Сообщение пользователя (суть) | Ожидаемое поведение native baseline | Наблюдаемый результат (human) |
+|---|------------------------------|--------------------------------------|-------------------------------|
+| 1 | «кто такой @grvtkv» | People identity через memory + ссылки | Корректный ответ про Егора Вотякова + **memory links** |
+| 2 | «какие проекты есть» | Projects из memory / skill контекста | **AuditNative**, **Zebra42** из memory |
+| 3 | «какие задачи по AuditNative» | Tasks/registry через skill + файлы | **Prepare native audit summary**, ответственный **@grvtkv** |
+| 4 | Строгий запрос: полный список проектов **строго** из `/data/studio/projects.json` | Tool **Read** файла, ответ только по SoT | Прочитан `projects.json`, в ответе **AuditNative** |
+| 5 | Строгий запрос: чаты проекта AuditNative **строго** из `/data/studio/chats.json` | Tool **Read** файла | Прочитан `chats.json`, показаны **Audit internal** / **Audit client** |
+
+**Классификация:** **native with config** (Platforms + adapter + bot providers) **+** **files / skills / memory** — без Go people resolver, без старых db/sqlc/store и inbound/channel патчей.
+
+**Вывод:** **people / projects / tasks lookup в Telegram DM** для Studio baseline закрывается **штатно** тем же слоем, что и Web-аудит: **Telegram Platform + Skills + Files + Memory**.
+
+### E.7 — Ручной план: Telegram **группа** (mention / slash / ACL / burst)
+
+**Подготовка:** создать тестовую группу, добавить бота участником. Во всех шаблонах ниже замените `YOUR_BOT_USERNAME` на **публичный** `@username` вашего бота (как в Telegram, начинается с `@`).
+
+**Ожидание по доке [sessions.md](../docs/docs/getting-started/sessions.md):** в группах на адаптерах по умолчанию часто **`discuss`** — ответ не обязан быть на каждое сообщение без явного участия бота.
+
+Скопируйте по очереди (сначала без mention, затем mention/slash):
+
+```text
+[TEST-GROUP-01] Обычное сообщение в группе без упоминания бота. Ожидаю либо молчание (discuss), либо политику вашего бота — зафиксируйте фактическое поведение.
+```
+
+```text
+YOUR_BOT_USERNAME ответь одним коротким предложением: слышишь ли ты это сообщение через mention?
+```
+
+```text
+YOUR_BOT_USERNAME /access
+```
+
+```text
+YOUR_BOT_USERNAME /help
+```
+
+```text
+/access
+```
+
+```text
+YOUR_BOT_USERNAME кратко перечисли проекты строго из /data/studio/projects.json (только факты из файла).
+```
+
+**Burst / очередь (native, без custom ModeQueue):** отправьте **быстро подряд** три строки (можно в одном сообщении или тремя подряд — зафиксируйте способ):
+
+```text
+YOUR_BOT_USERNAME [BURST-A] первое быстрое сообщение
+YOUR_BOT_USERNAME [BURST-B] второе быстрое сообщение
+YOUR_BOT_USERNAME [BURST-C] третье быстрое сообщение
+```
+
+**Что записать в отчёт:** для каждого шага — «ответил / не ответил», задержка, дубли, порядок ответов, ошибки ACL; скрин или пересланные ответы **без** токенов.
+
+**Статус плана:** прогон выполнен пользователем — см. **E.8**.
+
+### E.8 — Telegram group runtime evidence (human E2E, baseline `memohwebaudit`)
+
+Тестовая **группа**, бот с публичным username `@Jarvispbw_bot` (username не секрет). Токены и прочие credentials **не** фиксируем.
+
+| # | Сценарий | Ввод (суть) | Наблюдаемый результат | Интерпретация |
+|---|----------|-------------|----------------------|---------------|
+| G1 | Сообщение **без** mention бота | Текст: `кто такой @grvtkv` (в группе, бот не @упомянут) | Бот **не ответил**, пока не было mention | **Expected / acceptable:** для групп по умолчанию часто **`discuss`** — молчание без явного обращения к боту нормально и **безопасно**, если нет product requirement слушать все сообщения |
+| G2 | Mention + people | `@Jarvispbw_bot кто такой @grvtkv` | Ответ: `@grvtkv` — Егор Вотяков, роль (ассистент маркетолога / аккаунт-менеджер) | **Pass:** people через тот же слой, что DM/Web |
+| G3 | ACL / slash (Telegram suffix) | `/access@Jarvispbw_bot` | Диагностика: Channel Identity present; Linked User none; Bot Role none; Write Commands **no**; Channel telegram; Conversation Type **group**; Conversation ID present; Thread none; **Chat ACL: allow** | **Pass:** slash + identity; write отключён для не-owner — ожидаемо для обычного участника |
+| G4 | Strict file source | `@Jarvispbw_bot покажи полный список проектов строго из /data/studio/projects.json` | В ответе **AuditNative** из файла | **Pass:** strict SoT через files/tools |
+| G5 | Burst (три подряд) | `@Jarvispbw_bot BURST-A кто такой @grvtkv` / `… BURST-B какие проекты есть` / `… BURST-C какие задачи по AuditNative` | Все **три** ответа получены, **порядок** A → B → C сохранён: A — человек @grvtkv; B — проекты из `projects.json` (AuditNative); C — задача **Prepare native audit summary**, assignee **@grvtkv**, status **open** | **Pass:** нативная обработка серии без необходимости **custom ModeQueue** из archive |
+
+**Классификация group MVP:** **native with config** (Platforms + adapter + ACL) **+** **files / skills / memory** — без старых inbound/channel patches и без возврата **ModeQueue custom** по этому аудиту.
+
+---
+
+## Block F — Schedule / Heartbeat (только по документации, без runtime)
+
+Источники: [schedule.md](../docs/docs/getting-started/schedule.md), [heartbeat.md](../docs/docs/getting-started/heartbeat.md), [sessions.md](../docs/docs/getting-started/sessions.md), [slash-commands.md](../docs/docs/getting-started/slash-commands.md).
+
+| Вопрос | Вывод по докам |
+|--------|----------------|
+| Можно ли штатно сделать **daily digest**? | **Да:** **Schedule** с cron (`pattern`, например `0 9 * * *`) и полем **`command`** — произвольная NL-инструкция агенту; создание через UI **Schedule**, разговор с ботом (schedule tool) или `POST /api/bots/{bot_id}/schedule`. |
+| Какие **inputs** нужны digest'у? | По смыслу задачи: **Memory** (общая для бота), **Files** (`/data/studio/*.json`, `people.md`), **tasks/projects** из JSON, при необходимости web search / MCP — всё доступно агенту в **turn** по той же модели, что и обычный чат. |
+| Можно ли отправлять digest **в Telegram** штатно? | В [schedule.md](../docs/docs/getting-started/schedule.md) указано: результаты могут доставляться в **любой подключённый канал**; в примере `command` явно фигурирует формулировка про отправку в Telegram. Значит **MVP закрывается документированно** без custom cron вне Memoh. |
+| Что тестировать **отдельно** (runtime)? | Факт срабатывания cron в вашем timezone (`timezone` в конфиге сервера, по умолчанию UTC); что именно бот отправил в Telegram/Web; лимиты `max_calls`; права **owner-only** на `/schedule create` и т.д. ([slash-commands.md](../docs/docs/getting-started/slash-commands.md)). |
+| Нужен ли **custom cron / внешний harvester**? | **По умолчанию нет:** Schedule + Heartbeat покрывают периодику; Heartbeat — фиксированный интервал и «routine» промпт ([heartbeat.md](../docs/docs/getting-started/heartbeat.md)), Schedule — точное время и **кастомная** команда. Внешний harvester имеет смысл только при интеграции вне Memoh (отдельный RFC / sidecar). |
+
+**Связь с сессиями:** при срабатывании создаётся тип сессии **`schedule`** / **`heartbeat`** — их видно в списке сессий ([sessions.md](../docs/docs/getting-started/sessions.md)); логи heartbeat — вкладка **Heartbeat** и slash `/heartbeat` ([slash-commands.md](../docs/docs/getting-started/slash-commands.md)).
+
+---
+
 ## Tool trace (копируемая формулировка)
 
 **People через файл (ранее + подтверждено):**  
@@ -141,12 +268,18 @@
 **Session / history:**  
 UI: фильтр сессий по строке поиска; агент: **`Search history`** (см. Block A).
 
+**Telegram DM (human E2E, см. E.6):**  
+Ответы по people/projects/tasks и строгим путям `/data/studio/projects.json` / `chats.json` согласованы с Web-аудитом (skills + files + memory); отдельный tool trace в Telegram UI здесь не дублировали.
+
+**Telegram group (human E2E, см. E.8):**  
+MVP (mention, `/access@bot`, strict `projects.json`, burst) — **pass**; без mention до ответа — **acceptable default**; legacy inbound / **ModeQueue custom** — **не** восстанавливать по этому результату.
+
 ---
 
 ## Выводы для планирования
 
 1. **People identity** — закрывать через **files (`people.md`) + skill + memory**; **не** возвращать Go people resolver и **не** делать core-touch под эту задачу.  
-2. **Telegram** — оставить на отдельный разрешённый runtime-прогон с реальным каналом.  
+2. **Telegram** — **Platforms** + adapter (**Block E**). **DM** (**E.6**) и **группа** (**E.8**) — **подтверждены** human E2E: group MVP = **mention + ACL + files/skills/memory**; burst нативный — **достаточно**. После чувствительных тестов по-прежнему разумно **revoke/regenerate** токена в BotFather и обновить credentials в Memoh.  
 3. **Cross-session** для бота в Web подтверждён и для people lookup, и для явно сохранённого факта (через агентское обновление memory-файла).
 4. **Projects/chats/tasks** — держать в **`/data/studio/*.json` + skill**; memory — только дополнение; см. `STUDIO_RESTORE_DECISION_MATRIX.md`.
 5. **Поиск по истории** — использовать **UI session search** и/или **Search history**; для критичных маркеров — **Memory или SoT-файл**; sidecar — только по RFC.
@@ -155,7 +288,8 @@ UI: фильтр сессий по строке поиска; агент: **`Sea
 
 ## Block D — Consolidated pointer
 
-Итоговая матрица «что возвращать / что нет»: **`STUDIO_RESTORE_DECISION_MATRIX.md`**.
+Итоговая матрица «что возвращать / что нет»: **`STUDIO_RESTORE_DECISION_MATRIX.md`**.  
+Целевая архитектура native-first Studio: **`NATIVE_NEXT_ARCHITECTURE_RECOMMENDATION.md`**.
 
 ---
 
