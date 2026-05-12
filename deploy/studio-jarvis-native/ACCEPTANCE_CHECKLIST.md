@@ -2,9 +2,11 @@
 
 Отметьте пункты после ручной проверки на настроенном боте. Секреты и токены в чеклист не вносить.
 
-## Web
+## Web — managed skills
 
 - [x] **People lookup** — вопрос по известному `@handle` из `people.md`; ответ согласован с файлом и/или memory. *(Studio Jarvis Native Web smoke 2026-05-12: `Read /data/studio/people.md`.)*
+- [x] **Skills catalog в UI** — `GET .../container/skills` возвращает 4 managed skill; в **Settings → Skills** и в боковой панели чата видны карточки/описания (не «No skills yet»). *(2026-05-12: создание через `POST /api/bots/{bot_id}/container/skills` эквивалентно UI **New Skill**.)*
+- [x] **Skills + Q&A** — в новой сессии ответ на вопрос про правила для людей / проектов / digest ссылается на **`studio-people-source`**, **`studio-project-registry`**, **`studio-daily-digest`**; строгий `Read /data/studio/people.md` для `@grvtkv` без памяти — **pass**.
 - [x] **Strict people.md** — запрос вида «строго из people.md» приводит к чтению файла и ответу только по нему. *(Тот же прогон.)*
 - [x] **Strict projects/tasks** — список проектов и задач по запросу «строго из файла» совпадает с `projects.json` / `tasks.json` после `Read`. *(Тот же прогон + `chats.json`.)*
 
@@ -51,7 +53,7 @@
 | Web `events.example.jsonl` | **pass** | Доп. проверка: первые строки файла; трейс: **Read** `/data/studio/events.example.jsonl`. |
 | Behavior / источники (вопрос E) | **pass** | Модель перечислила SoT: `people.md`, `projects.json`, `chats.json`, `tasks.json` под `/data/studio/`. |
 | Files → Refresh + дерево `/data` | **pass** | Папка **`studio`** видна под `/data`; после smoke в треде отображаются кнопки путей ко всем перечисленным файлам. |
-| Skills → Refresh + 4 имени в UI | **partial / UX** | Выполнен **Refresh** на вкладке Skills; в сайдбаре по-прежнему строка **«No skills yet»**; поиск по странице не находит текст `studio-jarvis-behavior` и т.п. На volume ожидаются каталоги `skills/studio-jarvis-behavior`, `studio-people-source`, `studio-project-registry`, `studio-daily-digest` с `SKILL.md` — **проверить отдельно в продукте / issue**, не блокирует чтение файлов агентом. |
+| Skills → Refresh + 4 имени в UI | **pass** | Ранее: только копирование `skills/` на volume → пустой `GET .../container/skills` → «No skills yet». Исправление: **`POST /api/bots/{id}/container/skills`** (или UI **New Skill**) пишет в **`/data/skills/<name>/SKILL.md`** через bridge. В **Settings → Skills** отображаются 4 карточки **Managed / Effective**; в чате в сайдбаре — описания skills. В `studio-daily-digest` исправлен YAML `description` (кавычки из‑за `Schedule:`). |
 | Telegram DM / group / `/access` / burst | **не запускалось** | В этом проходе не настраивалось. |
 | Schedule digest smoke | **не запускалось** | В этом проходе не настраивалось. |
 | No core patches | **да** | Только docs + workspace файлы; Go/Vue/sqlc/db не менялись. |

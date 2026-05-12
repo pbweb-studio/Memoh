@@ -52,13 +52,36 @@
    - `projects.json`, `chats.json`, `tasks.json` — из `data/` этого bundle, затем правьте под реальность.
 3. Опционально: журнал событий по образцу `events.example.jsonl` → рабочий файл, например `events.jsonl` (append-only).
 
-## 8. Managed skills
+## 8. Managed skills (обязательно через Memoh, не «тихим» копированием на volume)
 
-Для каждого имени из списка:
+**Где живут managed skills в рантайме:** в контейнере workspace бота путь **`/data/skills/<skill-name>/SKILL.md`** (см. upstream `docs/docs/getting-started/skills.md`). Список на вкладке **Settings → Bot → Skills** и в боковой панели чата **Skills** строится из API **`GET /api/bots/{bot_id}/container/skills`** (сканирование `/data/skills` и discovery roots через **workspace bridge**, не произвольный произвольный путь на хосте).
 
-1. **Skills** → создать skill с именем каталога (как в репозитории: `studio-jarvis-behavior`, `studio-people-source`, `studio-project-registry`, `studio-daily-digest`).
-2. Откройте **`SKILL.md`** в редакторе и вставьте текст из соответствующего файла в `deploy/studio-jarvis-native/skills/<name>/SKILL.md`.
-3. Сохраните. Убедитесь, что skill **включён** для бота (по правилам UI Memoh).
+**Что не считается штатным способом:** положить каталоги `skills/.../SKILL.md` только на bind-mount хоста (`workspace-data/<bot_id>/skills/...`) и ожидать, что UI их увидит. Если файлы не попали в тот же слой ФС, который обслуживает bridge агента, или каталог `/data/skills` в контейнере не читается, **`GET .../container/skills` вернёт пустой список** — в UI будет **«No skills yet»** (это **пустой каталог skills**, а не «в этой сессии skills не вызывались»).
+
+### Вариант A (рекомендуется): Web UI
+
+1. **Settings** → выберите бота → **Skills** → **New Skill**.
+2. Вставьте **полный** текст `SKILL.md` из `deploy/studio-jarvis-native/skills/<name>/SKILL.md` (YAML frontmatter + тело). **Сохраните**.
+3. Повторите для четырёх имён: `studio-jarvis-behavior`, `studio-people-source`, `studio-project-registry`, `studio-daily-digest`.
+4. Нажмите **Refresh** в списке skills при необходимости; в карточках должны быть бейджи **Managed** + **Effective**.
+
+**YAML:** в поле `description:` не оставляйте неэкранированный текст с двоеточием вроде `Schedule: ...` без кавычек — иначе `POST .../container/skills` вернёт `400 invalid YAML frontmatter`. Безопасно: `description: "..."`.
+
+### Вариант B: HTTP API (автоматизация / CI)
+
+После логина (`POST /api/auth/login` → `access_token`):
+
+- **`POST /api/bots/{bot_id}/container/skills`** с телом `{"skills":["<полный markdown документ 1>", "..."]}` — каждый элемент массива = один `SKILL.md` с валидным frontmatter; сервер создаёт `/data/skills/<name>/` и пишет файл через тот же bridge, что и UI.
+
+Тело JSON нужно сериализовать как **массив строк**, а не «объектов» (см. `SkillsUpsertRequest` в коде).
+
+### Вариант C: только файлы на volume
+
+Имеет смысл **только если** вы гарантировали, что эти же пути видны процессу, который обслуживает `container/skills` (тот же mount, что и для успешного `Read /data/studio/...`). В противном случае снова получите пустой каталог в UI — предпочитайте A или B.
+
+### Production rollout
+
+На проде повторите **вариант A** (или B из защищённого пайплайна с сервисным аккаунтом): не копируйте bundle на сервер без проверки `GET .../container/skills`; после загрузки зафиксируйте в change log, что четыре skill в состоянии **effective**.
 
 ## 9. Schedule — daily digest
 
