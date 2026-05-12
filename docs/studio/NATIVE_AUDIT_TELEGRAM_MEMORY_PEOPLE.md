@@ -174,4 +174,52 @@
 
 ---
 
+## 11. Runtime audit (Web-only, `memohwebaudit`, 2026-05-12)
+
+**Окружение:** локальный compose-проект `memohwebaudit`, Web UI `http://127.0.0.1:8082`, конфиг только из изолированного `.local-web-audit/` (без правок рабочего `config.toml`, без реального Telegram). Бот в UI: **Web Audit People**. Provider и Chat Model заданы пользователем в UI; в репозиторий секреты не выносились.
+
+### 11.1 People identity — результат runtime
+
+Проверено в чате (handles и отображаемые имена согласованы с `people.md` / памятью, без Go-resolver):
+
+| Запрос (смысл) | Ожидание | Итог |
+|----------------|----------|------|
+| `@grvtkv` | Егор Вотяков | OK |
+| «Егор» (display) | Егор Вотяков | OK |
+| `@ibambets` | Глеб Крячок | OK |
+| «Глеб» (display) | Глеб Крячок | OK |
+
+**Классификация:** **native with config + files + skills + memory** — идентичность людей закрывается штатными поверхностями (workspace `people.md`, skill `web-audit-people`, ручные Memory-записи, retrieval в рантайме), **без** правок Go/core.
+
+### 11.2 Tool trace evidence (people / files)
+
+**Ранее зафиксированный сценарий** (запрос в духе «прочитай `people.md`…»): в UI отображалась цепочка инструментов:
+
+1. **Use skill** `web-audit-people`
+2. **List** `/data`
+3. **Read** `/data/people.md`  
+→ ответ с данными из файла.
+
+**Повтор в этой сессии аудита (2026-05-12):**
+
+- **List** `/data` — перечисление верхнего уровня (в т.ч. `people.md`, каталоги `memory`, `skills`, …).
+- **Read** `/data/people.md` — по явному запросу прочитать файл; в trace: `Read` → `/data/people.md`, ответ с цитатой строки вида `@grvtkv | Егор Вотяков | …`.
+
+**Memory-only сценарий** (инструкция не использовать `people.md` и не читать файлы, только long-term memory; вопрос «кто такой @grvtkv?»): ответ совпал с профилем; **между пользовательским сообщением и ответом в accessibility-снимке не отображались строки List/Read** (нет явного файлового tool trace на этом turn; релевантность через Memory не выводится отдельной строкой в UI).
+
+**Запоминание факта** («Запомни: тестовый проект AuditNative связан с @grvtkv»): в UI отображено обновление **`memory/2026-05-12.md`** (новая запись с topic AuditNative и текстом факта). В **новой** Web-сессии вопрос «С каким человеком связан тестовый проект AuditNative?» → краткий ответ **`@grvtkv`** (кросс-сессия для сохранённого факта подтверждена).
+
+**Skill / SoT** (вопрос: какое правило по источнику данных о людях): ответ модели явно указал **`people.md` как source of truth**, память — дополнительный контекст.
+
+### 11.3 Жёсткие запреты (people identity)
+
+- **Go people resolver не возвращать** — отдельный Go-resolver для people не нужен: сценарий закрыт Files + Skills + Memory.
+- **Core changes для people identity запрещены** — не вносить правки в core/Go ради реестра людей; использовать конфигурацию, файлы, skills и Memory.
+
+### 11.4 Telegram в этом runtime-прогоне
+
+Реальный Telegram и токены **не** использовались. Статус: **documented / native по docs, runtime в Telegram не тестировался** (см. также `NATIVE_RUNTIME_AUDIT_RESULTS.md`).
+
+---
+
 *Документ создан в рамках native audit block 1; коммит по умолчанию не выполнялся.*
