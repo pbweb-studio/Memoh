@@ -4,6 +4,8 @@
 **Контекст:** чистый native baseline; people identity и **Telegram DM + group MVP** и **Schedule cron digest** закрыты через **Skills + Files + Memory** + Platforms + ACL; core-touch и возврат Studio custom из archive **не** предполагаются без отдельного решения.  
 **Доказательства runtime (Web + Telegram DM + Telegram group + **Schedule cron**, `memohwebaudit`):** см. [`NATIVE_RUNTIME_AUDIT_RESULTS.md`](./NATIVE_RUNTIME_AUDIT_RESULTS.md).
 
+**Уточнение по экземпляру Studio Jarvis Native (локальный compose, 2026-05-12):** для бота **`994b7558-…`** зафиксирована **финальная Telegram-приёмка** (DM + group + `/access@jarvispbweb_bot` + strict `/data/studio/*` + burst с caveat — см. [`NATIVE_RUNTIME_AUDIT_RESULTS.md`](./NATIVE_RUNTIME_AUDIT_RESULTS.md) **E.8b**, [`ACCEPTANCE_CHECKLIST.md`](../deploy/studio-jarvis-native/ACCEPTANCE_CHECKLIST.md)). Классификация строк таблицы по-прежнему относится к **возможностям Memoh native**; токены задаются только в UI и **не** дублируются в доках.
+
 Легенда колонки **Native result:** `native` | `native with config` | `files/skills/memory` | `MCP` | `sidecar` | `thin overlay` | `not tested` | `do not restore`
 
 | Feature | Native result | Recommended home | Restore old custom? | Core-touch allowed? | Evidence | Notes |
@@ -20,8 +22,8 @@
 | Telegram adapter bind (UI) | native with config | Platforms → Telegram → Save and enable | **Нет** | **Нет** | [`NATIVE_RUNTIME_AUDIT_RESULTS.md`](./NATIVE_RUNTIME_AUDIT_RESULTS.md) Block E | UI **Telegram Active**; строка `telegram` в `bot_channel_configs` |
 | Telegram DM — Q&A (people/projects/tasks + strict JSON reads) | native with config + files/skills/memory | Platforms + adapter + workspace skills/memory + `/data/studio/*.json` | **Нет** | **Нет** | Block E.6 (human E2E) | Старый Go people resolver / inbound/channel / sqlc people patches **не** нужны для этого сценария |
 | People/projects/tasks **via Telegram DM** | files/skills/memory | SoT JSON + skills; memory — дополнение | **Нет** | **Нет** | Block E.6 | То же, что Web-аудит, другой транспорт |
-| Telegram group / mention / access / strict JSON / burst | **native with config** + files/skills/memory | Mention + ACL + штатный adapter + workspace | **Нет** | **Нет** | Block **E.8** (human E2E) | Без mention — **acceptable** default (`discuss`); см. `NATIVE_RUNTIME_AUDIT_RESULTS.md` |
-| Telegram group routing / legacy **ModeQueue** custom | **do not restore** для MVP | Нативный burst в E.8 — порядок ответов нормальный | **Нет** | **Нет** | Block E.8 | Custom ModeQueue из archive — **не** возвращать по этому аудиту |
+| Telegram group / mention / access / strict JSON / burst | **native with config** + files/skills/memory | Mention + ACL + штатный adapter + workspace | **Нет** | **Нет** | Block **E.8** (baseline @Jarvispbw_bot); **E.8b** (SJN `@jarvispbweb_bot`, финальная приёмка 2026-05-12) | Без mention — **acceptable** default (`discuss`); SJN burst — см. **E.8b** (caveat по B в пачке) |
+| Telegram group routing / legacy **ModeQueue** custom | **do not restore** для MVP | Нативный burst: baseline **E.8** — полный порядок A→B→C; SJN **E.8b** — MVP pass без strict queue | **Нет** | **Нет** | Block **E.8** + **E.8b** | **ModeQueue** из archive — **не** возвращать автоматически; строгая очередь burst — **RFC / product**, не MVP |
 | daily digest / **Schedule** cron | **native with config** + files/skills/memory (runtime **Pass**, Block **G**) | UI **Schedule** + NL `command`; сессии типа `schedule` | **Нет** | **Нет** | Block **G** + schedule.md | `max_calls` / slash owner — см. pending в Block F |
 | Heartbeat (autonomous interval) | native with config (док) + **runtime не гоняли** | Heartbeat tab; `/heartbeat` ([slash-commands.md](../docs/docs/getting-started/slash-commands.md)) | **Нет** | **Нет** | heartbeat.md, Block F | Для digest предпочтительнее **Schedule** |
 | old **task harvester** / **custom cron** (Studio archive) | **do not restore** для MVP | Заменено штатным **Schedule** + при необходимости **Heartbeat** / MCP | **Нет** | Только явное требование вне Schedule+Heartbeat+MCP (**RFC**) | Block **G** | Пересмотр — если требование **нельзя** закрыть штатными средствами |
@@ -39,7 +41,7 @@
 
 - **old Go people resolver:** **do not restore.**  
 - **old db/sqlc/store patches:** **do not restore** unless a **separate RFC** proves raw-history/SLA/registry needs that cannot be met with files/Memory/MCP.  
-- **old inbound/channel patches:** **do not restore** для **DM и group MVP** (подтверждено **E.6–E.8**). Возврат — **только** при **явном** продуктовом требовании: пассивное прослушивание **всех** сообщений группы без mention и/или отдельная **жёсткая** семантика очереди вне штатного поведения (**RFC**).  
+- **old inbound/channel patches:** **do not restore** для **DM и group MVP** (подтверждено **E.6–E.8** и **E.8b** для SJN). Возврат — **только** при **явном** продуктовом требовании: пассивное прослушивание **всех** сообщений группы без mention и/или отдельная **жёсткая** семантика очереди вне штатного поведения (**RFC**).  
 - **old task harvester / custom cron (archive):** **do not restore** для MVP при работающем **Schedule** (Block **G**). Пересмотр — только при явном требовании, не закрываемом **Schedule + Heartbeat + MCP/sidecar** (**RFC**).  
 - **memory context packer hooks:** **do not restore** for people/project lookup — закрывается провайдером памяти и файловыми SoT.
 

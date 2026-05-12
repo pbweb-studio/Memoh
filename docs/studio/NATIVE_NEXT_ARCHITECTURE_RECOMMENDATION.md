@@ -12,7 +12,7 @@
 
 ## Краткий статус native audit
 
-- **Studio Jarvis Native bundle (Web smoke, 2026-05-12):** после исправления layout — строгие **Read** по `/data/studio/people.md`, `projects.json`, `chats.json`, `tasks.json`, `events.example.jsonl` в одной Web-сессии; **без правок core**. Четыре managed studio-* skills зарегистрированы через **`POST .../container/skills`** (или UI); **Settings → Skills** и сайдбар чата показывают список (**не** «No skills yet»).
+- **Studio Jarvis Native bundle (Web + Schedule UI-smoke + **финальная Telegram-приёмка**, 2026-05-12):** Web strict reads + managed skills — **pass**. **Schedule:** тест `StudioNativeFinalScheduleSmoke` создан/сработал (`schedule completed` ok в логах) и **удалён** через UI. **Telegram (SJN, `@jarvispbweb_bot`):** **DM pass**; **group MVP pass** (`/access@jarvispbweb_bot`, mention, strict `/data/studio/*`); **burst — pass with caveat** (см. [`NATIVE_RUNTIME_AUDIT_RESULTS.md`](./NATIVE_RUNTIME_AUDIT_RESULTS.md) **E.8b** и [`ACCEPTANCE_CHECKLIST.md`](../deploy/studio-jarvis-native/ACCEPTANCE_CHECKLIST.md)): A и C — полные ответы; B в пачке — в основном reaction/ack; B отдельно — полный ответ по `projects.json`; **strict queue semantics** для burst **не** обязательны для MVP; **ModeQueue custom из archive не возвращать** автоматически.
 - **Web (`memohwebaudit`):** people, files, memory, skills; session UI search + ограничения `Search history`; реестры `/data/studio/*.json` + skill — **зафиксированы** в runtime audit.  
 - **Telegram DM** (people/projects/tasks + строгие `projects.json` / `chats.json`) — **runtime passed** (human E2E, Block **E.6**).  
 - **Telegram group MVP** (mention, `/access@bot`, strict `projects.json`, burst; без mention = acceptable default) — **runtime passed** (human E2E, Block **E.8**).  
@@ -28,7 +28,7 @@
 | People identity | Web + **Telegram DM** + **Telegram group (mention)** — skills + `people.md` + memory |
 | Projects / chats / tasks | Web + DM + **group** — `/data/studio/*.json`, strict reads |
 | Канал Telegram | UI **Platforms**, adapter active; **ACL** в группе (`/access@bot` — allow, write off) |
-| Burst / порядок ответов | Три подряд mention-сообщения — все ответы, порядок A→B→C; **custom ModeQueue** не нужен |
+| Burst / порядок ответов | **MVP:** нативный burst **без** custom **ModeQueue** — **pass** для baseline (**E.8**, все A→B→C полные) и **pass with caveat** для SJN (**E.8b**: B в пачке — reaction/ack; A/C и B отдельно — полные). **Strict queue** (полный ответ на **каждое** сообщение burst **в порядке**) — **не** требование MVP; при необходимости — **RFC / product**. **ModeQueue** из archive **не** возвращать автоматически |
 | **Schedule / digest** | UI Schedule + cron; агент **read** `projects.json` + `tasks.json`; **harvester/custom cron** из archive для MVP **не** нужен |
 | Политика restore | Матрица: старые Go/db/inbound/ModeQueue/**harvester** для этого MVP — **не** возвращать |
 
@@ -41,7 +41,7 @@
 3. **Telegram-клиент:** отдельно убедиться, что **`send`** с `platform: "telegram"` из schedule-turn реально доходит в личку/группу (в Block **G** подтверждён только tool-result `delivered: current_conversation`).  
 4. **Studio Control Mini App** — UX-аудит при необходимости (`not tested` в матрице).  
 5. **Raw history / SLA** — только **RFC**, при необходимости MCP/sidecar.
-6. **Telegram + Schedule для Studio Jarvis Native** — ручной production rollout по RUNBOOK / ACCEPTANCE (токен, cron), не входили в smoke 2026-05-12.
+6. **Telegram + Schedule для Studio Jarvis Native** — на локальном `memohwebaudit` (2026-05-12): **Schedule** UI-smoke и **Telegram** DM + group (в т.ч. `/access`, strict files, burst с caveat по **E.8b**) — **закрыты**; остаток см. п.п. 1–5 (Heartbeat runtime, `max_calls`, доставка `send` в клиент Telegram, Mini App, raw history RFC).
 
 ---
 
@@ -51,7 +51,7 @@
 - **Старый Go people resolver** — **нет**.  
 - **Старые db/sqlc/store patches** под people/registry в core — **нет** без RFC.  
 - **Старые inbound/channel patches** для **DM + group MVP** — **нет** (runtime E.6–E.8).  
-- **Старый ModeQueue custom** — **нет** по результату burst (E.8).  
+- **Старый ModeQueue custom** — **нет** для MVP: baseline burst (**E.8**) и SJN (**E.8b**, caveat по B в пачке) **не** требуют возврата; строгая очередь — только **RFC / product**.  
 - **Старые memory context packer hooks** для этого lookup — **нет**.  
 - **Old task harvester / custom cron** — **нет** для MVP, пока **Schedule** закрывает digest (**Block G**).
 

@@ -12,26 +12,26 @@
 
 ## Telegram
 
-- [ ] **DM** — те же сценарии people + projects + tasks, что в Web (см. runtime Block E.6).
-- [ ] **Group mention** — ответ после `@BotName`, без mention бот не обязан отвечать (MVP default).
-- [ ] **`/access` в группе** — идентичность канала и ACL отображаются ожидаемо (`/access@Bot` при необходимости).
+- [x] **DM** — те же сценарии people + projects + tasks, что в Web (см. runtime Block E.6). *(Studio Jarvis Native, `memohwebaudit`, финальный прогон 2026-05-12: **pass** после `/start` и стабилизации adapter.)*
+- [x] **Group mention** — ответ после `@BotName`, без mention бот не обязан отвечать (MVP default). *(SJN: mention — **pass**.)*
+- [x] **`/access` в группе** — идентичность канала и ACL отображаются ожидаемо (`/access@Bot` при необходимости). *(SJN: `/access@jarvispbweb_bot` — **pass**; Conversation Type **group**, Chat ACL **allow**.)*
 
 ## Нагрузка / порядок
 
-- [ ] **Burst A / B / C** — три подряд mention в группе; три ответа, порядок A → B → C; без legacy **ModeQueue**.
+- [x] **Burst A / B / C** — три подряд mention в группе; **MVP:** нативное поведение без legacy **ModeQueue**. *(SJN 2026-05-12: **BURST-A** — полный корректный ответ; **BURST-B** в пачке — в основном **reaction/ack**, без полного текста; **BURST-C** — полный корректный ответ; **BURST-B** отдельным сообщением после пачки — полный ответ по `projects.json`. Строгая семантика очереди «полный ответ на каждое из трёх подряд» **не** гарантируется штатным MVP — только **RFC / product**, если понадобится; **custom ModeQueue из archive не возвращать** автоматически.)*
 
 ## Schedule
 
-- [ ] **Schedule digest** — срабатывание по cron; сессия типа `schedule`; в истории видны чтения JSON; вывод краткий и помеченный (см. Block G).
+- [x] **Schedule digest (UI smoke)** — тестовое расписание **`StudioNativeFinalScheduleSmoke`**: режим **Every N minutes (2)**, инструкция с **strict** чтением `projects.json` / `tasks.json` и маркером в ответе; в логах `memoh-server`: **`schedule completed` … `status=ok`** (два срабатывания на одном `schedule_id`); после проверки расписание **удалено** через UI (**`DELETE …/schedule/{id}` → 204**). *(Открытая сессия schedule в UI для полного трейса Read не просматривалась; при необходимости — повторить и открыть сессию из сайдбара Schedule.)*
 
 ## Политика репозитория
 
-- [ ] **No core patches** — в ветке baseline нет возврата Go/Vue/sqlc/inbound custom под этот MVP.
-- [ ] **Old custom not restored** — нет Go people resolver, sqlc people patches, packer hooks для lookup, harvester/custom cron из archive, merge archive-heavy-fork как источника кода.
+- [x] **No core patches** — в ветке baseline нет возврата Go/Vue/sqlc/inbound custom под этот MVP.
+- [x] **Old custom not restored** — нет Go people resolver, sqlc people patches, packer hooks для lookup, harvester/custom cron из archive, merge archive-heavy-fork как источника кода.
 
 ## Документация
 
-- [ ] Команда знает, где SoT: **`/data/studio/people.md`** и **`/data/studio/*.json`**.
+- [x] Команда знает, где SoT: **`/data/studio/people.md`** и **`/data/studio/*.json`**.
 
 ---
 
@@ -54,7 +54,27 @@
 | Behavior / источники (вопрос E) | **pass** | Модель перечислила SoT: `people.md`, `projects.json`, `chats.json`, `tasks.json` под `/data/studio/`. |
 | Files → Refresh + дерево `/data` | **pass** | Папка **`studio`** видна под `/data`; после smoke в треде отображаются кнопки путей ко всем перечисленным файлам. |
 | Skills → Refresh + 4 имени в UI | **pass** | Ранее: только копирование `skills/` на volume → пустой `GET .../container/skills` → «No skills yet». Исправление: **`POST /api/bots/{id}/container/skills`** (или UI **New Skill**) пишет в **`/data/skills/<name>/SKILL.md`** через bridge. В **Settings → Skills** отображаются 4 карточки **Managed / Effective**; в чате в сайдбаре — описания skills. В `studio-daily-digest` исправлен YAML `description` (кавычки из‑за `Schedule:`). |
-| Telegram DM / group / `/access` / burst | **не запускалось** | В этом проходе не настраивалось. |
-| Schedule digest smoke | **не запускалось** | В этом проходе не настраивалось. |
+| Telegram DM (SJN) | **pass** | People/projects/tasks + strict `/data/studio/*.md` / `*.json` — согласовано с Web-слоем (skills/files/memory). |
+| Telegram group + `/access` + strict files (SJN) | **pass (MVP)** | Mention — pass; `/access@jarvispbweb_bot` — group, ACL allow; strict lookup people/projects/tasks — pass. |
+| Burst A/B/C (SJN, native) | **pass with caveat** | A — полный ответ; B в пачке — reaction/ack; C — полный ответ; B отдельно — полный ответ по `projects.json`. **Не** строгая очередь «3 полных ответа подряд» без RFC; **ModeQueue custom не возвращать** для MVP. |
+| Schedule digest smoke | **pass (UI + server log)** | `StudioNativeFinalScheduleSmoke`: создание → `schedule completed` ok → удаление UI. |
 | No core patches | **да** | Только docs + workspace файлы; Go/Vue/sqlc/db не менялись. |
 | Old custom not restored | **да** | Только штатный Memoh + bundle. |
+
+### Ручные тексты для Telegram (после включения Platforms → Telegram)
+
+Подставьте реальный `@username` бота вместо `@BOT_USERNAME`.
+
+**DM**
+
+1. Кто такой @grvtkv? Сначала Read `/data/studio/people.md`, потом ответь.
+2. Перечисли проекты строго из `/data/studio/projects.json`.
+3. Задачи для `project_id` `proj-audit-native` строго из `/data/studio/tasks.json`.
+
+**Group**
+
+1. `@BOT_USERNAME` Кто такой @ibambets? Read `/data/studio/people.md`.
+2. `/access@BOT_USERNAME`
+3. `@BOT_USERNAME` BURST-A кто такой @grvtkv
+4. `@BOT_USERNAME` BURST-B какие проекты есть
+5. `@BOT_USERNAME` BURST-C какие задачи по AuditNative

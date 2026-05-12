@@ -14,7 +14,8 @@
 - **Web smoke (strict reads + skills, одна сессия, после layout-fix и upsert skills):** вопросы A–E + чтение первых строк `events.example.jsonl`. **Tool trace (UI):** последовательные **Read** — `/data/studio/people.md`, `/data/studio/projects.json`, `/data/studio/chats.json`, `/data/studio/tasks.json`, `/data/studio/events.example.jsonl`; при ранних шагах также отображался **Read** `/data`. Вопрос про правила для людей / проектов / digest — ответ ссылается на **`studio-people-source`**, **`studio-project-registry`**, **`studio-daily-digest`** (и дисциплина **`studio-jarvis-behavior`** в effective set).
 - **Managed skills в UI:** **Settings → Skills** и сайдбар чата показывают четыре managed skill (**Effective**); **Refresh** обновляет список с `GET .../container/skills`. **YAML caveat:** в `studio-daily-digest` поле `description` с `Schedule:` без кавычек ломало парсинг frontmatter при upsert — в bundle исправлено на `description: "..."`.
 - **Rollout Web smoke passed without core changes** — Go/Vue/sqlc/db/migrations не менялись; проверка только Web UI + существующий compose/volume.
-- **Telegram / Schedule / burst:** не выполнялись в этом проходе (без токена и без изменения cron); см. ниже готовые сообщения для пользователя.
+- **Telegram (Studio Jarvis Native, финальная приёмка 2026-05-12):** бот **`994b7558-…`**, публичный username **`@jarvispbweb_bot`** (username не секрет). **DM** — **pass** (people/projects/tasks + strict `/data/studio/*.md` / `*.json`, после `/start` и стабилизации adapter). **Группа** — **MVP pass**: mention — **pass**; **`/access@jarvispbweb_bot`** — **pass** (Conversation Type **group**, Chat ACL **allow**); strict lookup people/projects/tasks — **pass**. **Burst (нативный, без custom ModeQueue):** **BURST-A** — полный корректный ответ; **BURST-B** в одной пачке с A/C — в основном **reaction/ack**, без полного текста; **BURST-C** — полный корректный ответ; **BURST-B** отдельным сообщением после пачки — полный корректный ответ по `projects.json`. **Вывод:** group **MVP pass**; нативный burst **приемлем для MVP**, но **не** гарантирует строгую семантику очереди «полный ответ на каждое сообщение в порядке» — при необходимости только **RFC / product**. **Legacy ModeQueue custom из archive не возвращать** автоматически для MVP. Детали и чеклист — [`ACCEPTANCE_CHECKLIST.md`](../../deploy/studio-jarvis-native/ACCEPTANCE_CHECKLIST.md).
+- **Schedule (Studio Jarvis Native, финальный UI-smoke 2026-05-12):** создано и затем **удалено** тестовое расписание **`StudioNativeFinalScheduleSmoke`** (интервал **каждые 2 минуты**, инструкция с **strict** digest по `projects.json` / `tasks.json`). В логах **`memoh-server`**: строки **`schedule completed`** для `schedule_id=efbc5fc6-7fd7-433e-a207-85b00bcaf746` со **`status=ok`** (два завершения до удаления); удаление — **`DELETE /bots/…/schedule/efbc5fc6-…` → 204**. Полный трейс **Read** в UI сессии `schedule` в этом прогоне не фиксировался отдельно.
 
 ---
 
@@ -247,6 +248,20 @@ YOUR_BOT_USERNAME [BURST-C] третье быстрое сообщение
 
 **Классификация group MVP:** **native with config** (Platforms + adapter + ACL) **+** **files / skills / memory** — без старых inbound/channel patches и без возврата **ModeQueue custom** по этому аудиту.
 
+### E.8b — Studio Jarvis Native: финальная Telegram-приёмка (human E2E, 2026-05-12)
+
+Тестовая **группа**, бот с публичным username **`@jarvispbweb_bot`** (username не секрет). Экземпляр **Studio Jarvis Native** (`994b7558-…`). Токены и credentials **не** фиксируем.
+
+| # | Сценарий | Наблюдаемый результат | Интерпретация |
+|---|----------|----------------------|---------------|
+| SJN-G1 | **`/access@jarvispbweb_bot`** | Сработало; Conversation Type **group**; Chat ACL **allow** | **Pass** |
+| SJN-G2 | Mention бота | Ответы на обращения с mention | **Pass** |
+| SJN-G3 | Strict file lookup (people / projects / tasks) | Запросы «строго из» `/data/studio/*.md` / `*.json` | **Pass** |
+| SJN-G4 | Burst A / B / C **в пачке** (три подряд mention) | **A** — полный корректный ответ; **B** — в основном **reaction/ack**, без полного текста; **C** — полный корректный ответ | **MVP acceptable:** нативный burst **без** strict queue semantics; **не** основание автоматически возвращать **ModeQueue custom** |
+| SJN-G5 | **BURST-B** отдельным сообщением после пачки | Полный корректный ответ по `projects.json` | **Pass:** контент и инструменты доступны; задержка/объединение в пачке — поведение рантайма, не блокер MVP |
+
+**Итог:** **Telegram DM pass**; **Telegram group MVP pass**; **`/access` pass**; **strict file lookup pass**; **burst — pass with caveat** (см. SJN-G4–G5). Строгая очередь «полный ответ на каждое burst-сообщение в порядке» для MVP **не** требуется; при продуктовой необходимости — **отдельное решение / RFC**. **Legacy ModeQueue** — **не** восстанавливать для MVP без явного требования.
+
 ---
 
 ## Block F — Schedule / Heartbeat: справка по документации (baseline)
@@ -329,10 +344,10 @@ YOUR_BOT_USERNAME [BURST-C] третье быстрое сообщение
 UI: фильтр сессий по строке поиска; агент: **`Search history`** (см. Block A).
 
 **Telegram DM (human E2E, см. E.6):**  
-Ответы по people/projects/tasks и строгим путям `/data/studio/projects.json` / `chats.json` согласованы с Web-аудитом (skills + files + memory); отдельный tool trace в Telegram UI здесь не дублировали.
+Ответы по people/projects/tasks и строгим путям `/data/studio/projects.json` / `chats.json` согласованы с Web-аудитом (skills + files + memory); для **Studio Jarvis Native** финальный **DM pass** зафиксирован в bundle rollout + [`ACCEPTANCE_CHECKLIST.md`](../deploy/studio-jarvis-native/ACCEPTANCE_CHECKLIST.md).
 
-**Telegram group (human E2E, см. E.8):**  
-MVP (mention, `/access@bot`, strict `projects.json`, burst) — **pass**; без mention до ответа — **acceptable default**; legacy inbound / **ModeQueue custom** — **не** восстанавливать по этому результату.
+**Telegram group (human E2E, см. E.8 + E.8b):**  
+Baseline-бот (**E.8**): MVP + burst с полными ответами A→B→C — **pass**. **Studio Jarvis Native** (**E.8b**, `@jarvispbweb_bot`): group MVP — **pass**; burst — **pass with caveat** (B в пачке — reaction/ack; A/C и B отдельно — полные ответы). Без mention до ответа — **acceptable default**; legacy inbound / **ModeQueue custom** — **не** восстанавливать для MVP; строгая очередь burst — только **RFC / product**.
 
 **Schedule (runtime, см. G):**  
 Cron `*/2 * * * *` → сессии типа **`schedule`**; агент: **`read`** `projects.json` + `tasks.json` → **`send`** (после уточнения `platform`).
@@ -342,7 +357,7 @@ Cron `*/2 * * * *` → сессии типа **`schedule`**; агент: **`read
 ## Выводы для планирования
 
 1. **People identity** — закрывать через **files (`people.md`) + skill + memory**; **не** возвращать Go people resolver и **не** делать core-touch под эту задачу.  
-2. **Telegram** — **Platforms** + adapter (**Block E**). **DM** (**E.6**) и **группа** (**E.8**) — **подтверждены** human E2E: group MVP = **mention + ACL + files/skills/memory**; burst нативный — **достаточно**. После чувствительных тестов по-прежнему разумно **revoke/regenerate** токена в BotFather и обновить credentials в Memoh.  
+2. **Telegram** — **Platforms** + adapter (**Block E**). **DM** (**E.6**) и **группа** (**E.8**, baseline-бот; **E.8b**, Studio Jarvis Native `@jarvispbweb_bot`) — **подтверждены** human E2E: group MVP = **mention + ACL + files/skills/memory**. Для SJN burst нативный — **достаточно для MVP** с оговоркой (**E.8b**): не ждать strict queue без RFC; **ModeQueue custom** не возвращать автоматически. После чувствительных тестов по-прежнему разумно **revoke/regenerate** токена в BotFather и обновить credentials в Memoh.  
 3. **Cross-session** для бота в Web подтверждён и для people lookup, и для явно сохранённого факта (через агентское обновление memory-файла).
 4. **Projects/chats/tasks** — держать в **`/data/studio/*.json` + skill**; memory — только дополнение; см. `STUDIO_RESTORE_DECISION_MATRIX.md`.
 5. **Поиск по истории** — использовать **UI session search** и/или **Search history**; для критичных маркеров — **Memory или SoT-файл**; sidecar — только по RFC.  
