@@ -1,0 +1,40 @@
+---
+description: Protected Memoh core paths; no edits without explicit RFC approval.
+globs:
+alwaysApply: true
+---
+
+# Memoh core protection (Studio Jarvis)
+
+## Protected core areas
+
+Treat the following as **protected**. Cursor **must not** edit them unless the user **explicitly approves** the RFC from `00-upstream-docs-first.mdc` (including the «ОТХОЖУ ОТ ЗАДОКУМЕНТИРОВАННОГО СПОСОБА» section) **for that specific change**:
+
+- `internal/db/` (database access and store logic)
+- `internal/db/postgres/sqlc/` and `internal/db/sqlite/sqlc/` (**generated** sqlc Go — never edit manually in agent work)
+- `internal/db/sqlite/` (SQLite store and related non-generated code)
+- `internal/channel/inbound/`
+- `internal/channel/adapters/`
+- `internal/conversation/flow/`
+- `internal/memory/`
+- `internal/skills/`
+- `cmd/agent/`
+- **Database migrations** (`db/postgres/migrations/`, `db/sqlite/migrations/`, and related migration workflow)
+- **Generated sqlc Go files** under `internal/db/**/sqlc/` (regenerate via tooling; never “fix by hand” in agent work)
+
+If a task seems to require a protected-core edit: **stop before editing** and ask the user; point to this rule file and the RFC requirement.
+
+## Policy when Studio drifted into core
+
+- **Prefer deleting or reverting** Studio-specific core patches over **adding** new ones.
+- **Never restore** legacy custom implementations without **explicit** user approval, including:
+  - custom **ModeQueue**
+  - task harvester / **custom cron** outside documented schedule
+  - **Go people resolver** in core (prefer `/data/studio` + skills + documented APIs)
+  - **memory context packer hook** or other memory pipeline forks
+  - **db / sqlc** patches for Studio registries
+  - **inbound / channel** patches or a **custom Telegram pipeline**
+
+## Goal
+
+Keep Memoh **upstream-mergeable** and Studio Jarvis as **overlay-first** (see `20-studio-overlay-model.mdc`).

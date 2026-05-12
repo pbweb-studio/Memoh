@@ -1,0 +1,41 @@
+---
+description: Require Memoh upstream docs before Studio design; RFC when departing from documented mechanisms.
+globs:
+alwaysApply: true
+---
+
+# Upstream documentation first (Memoh / Studio Jarvis)
+
+## Scope
+
+These rules apply to **all** Cursor work in this repository that affects **Studio Jarvis**, **Memoh Native** overlays, deployment templates, skills, or documentation that defines how Studio extends Memoh.
+
+## Before designing or implementing Studio features
+
+1. **Read local upstream index and capability map** under `docs/upstream/memoh/` (at minimum `README.md`, and when scoping a feature also `native-capabilities.md` and `sources.md`).
+2. **Prefer official Memoh documented mechanisms** (in-repo `docs/docs/` mirrors public docs; public site is listed in `sources.md`).
+3. In any **implementation report, PR description, or handoff**, **name the documented mechanism** used (file path under `docs/docs/…` and/or `https://docs.memoh.ai/…` URL).
+
+## If no documented mechanism exists
+
+**Stop** before writing application/core code. Do not invent undocumented core behavior.
+
+Produce an RFC-style section in the plan or doc, headed exactly:
+
+**`⚠️ ОТХОЖУ ОТ ЗАДОКУМЕНТИРОВАННОГО СПОСОБА`**
+
+Include all of the following:
+
+- **A.** Какой штатный способ изучен (which official paths were reviewed: doc paths, UI, skills, memory, MCP, ACL, channels, schedule).
+- **B.** Почему он не подходит (why those paths are insufficient for the stated goal).
+- **C.** Предлагаемый overlay / sidecar / plugin-подход (concrete alternative that keeps Memoh core upstream-friendly).
+- **D.** Риски (security, maintenance, upgrade breakage, data integrity).
+- **E.** Минимальный объём (smallest change set; what is explicitly out of scope).
+- **F.** План отката (how to disable or revert without breaking baseline Memoh).
+
+Only after explicit user approval for that RFC may work proceed into **protected core** areas (see `10-core-protection.mdc`) or other high-risk edits.
+
+## Prohibitions
+
+- Do **not** assume internal Go behavior that is not described in upstream docs or stable public API / config surfaces.
+- Do **not** treat the archive branch `studio/archive-heavy-fork-20260512-1245` as a specification source; it is reference-only and must not be merged.

@@ -4,14 +4,49 @@
 
 Memoh is a multi-member, structured long-memory, containerized AI agent system platform. Users can create AI bots and chat with them via Telegram, Discord, Lark (Feishu), DingTalk, WeChat, Matrix, Email, and more. Every bot has an independent container and memory system, allowing it to edit files, execute commands, and build itself — providing a secure, flexible, and scalable solution for multi-bot management.
 
+## Studio Jarvis / Memoh Native — upstream overlay model
+
+- **Memoh core** must remain **maximally upstream-compatible**. Treat the upstream Memoh codebase as the foundation; avoid turning this line into a heavy fork.
+- **Studio Jarvis** must be built as an **overlay / plugin / sidecar / configuration layer** on top of upstream Memoh, not as a parallel product core inside Memoh’s Go tree.
+- **Default order for any new Studio feature** (try earlier steps before later ones):
+  1. Official Memoh documentation (see `docs/upstream/memoh/` index and links in `docs/upstream/memoh/sources.md`)
+  2. **UI / config** (Web UI, bot settings, channels, schedules, etc.)
+  3. **Managed skills** (behavior, workflows, style)
+  4. **`/data/studio` files** (durable Studio registries and structured data — see `.cursor/rules/20-studio-overlay-model.mdc`)
+  5. **Memory** (conversation facts / retrieval — not the system of record for employees, projects, or chat registries)
+  6. **MCP / tools** (integrations and automation outside core)
+  7. **Access / ACL** (documented trigger and access rules)
+  8. **Telegram Platform / channels** (documented channel behavior)
+  9. **Schedule** (documented cron / heartbeat where applicable)
+  10. **Sidecar / plugin overlay** (optional processes or extensions that can be disabled)
+  11. **Core code change** only with **explicit human approval** after an RFC-style assessment (see `.cursor/rules/00-upstream-docs-first.mdc` and `docs/studio/FEATURE_DECISION_TEMPLATE.md`)
+
+- **Every Studio feature** must **cite the documented Memoh mechanism** it relies on (doc path or public docs URL). If there is no documented mechanism, do not implement in core; produce an RFC block per project rules first.
+- **Custom Go / core patches** are **prohibited by default**. Prefer overlay, skills, data files, MCP, and sidecars.
+
+### Archive branch (reference only)
+
+The branch **`studio/archive-heavy-fork-20260512-1245`** exists **only as a historical reference**. It **must not be merged**, cherry-picked wholesale, or used as a source to “restore” fork behavior. Do not copy patterns from it unless explicitly approved as a one-off with full RFC coverage.
+
+### Secrets and credentials
+
+**Never print, log, paste, or commit secrets** (tokens, API keys, passwords, private keys, session cookies, `.env` contents, deployment credentials). Follow normal hygiene for `config.toml`, `.env`, and generated credentials.
+
+Do not modify `.env`, `config.toml`, secrets, or the **MEMORY.md approval flow** as part of routine agent work unless the user explicitly requests a scoped change.
+
+### Local upstream doc index
+
+Before designing or implementing Studio-specific behavior, consult the **local upstream snapshot index**: `docs/upstream/memoh/README.md` (and linked `sources.md`, `native-capabilities.md`). Official GitHub and **https://docs.memoh.ai** remain the freshness source of truth; the local tree is for Cursor/agent workflow alignment.
+
 ## Architecture Overview
 
-The system consists of two core services:
+The system consists of three core services:
 
 | Service | Tech Stack | Port | Description |
 |---------|-----------|------|-------------|
 | **Server** (Backend) | Go + Echo | 8080 | Main service: REST API, auth, database, container management, **in-process AI agent** |
 | **Web** (Frontend) | Vue 3 + Vite | 8082 | Management UI: visual configuration for Bots, Models, Channels, etc. |
+| **Browser Gateway** | Bun + Elysia + Playwright | 8083 | Browser automation service: headless browser actions for bots |
 
 Infrastructure dependencies:
 - **PostgreSQL or SQLite** — Relational data storage
@@ -41,6 +76,11 @@ Infrastructure dependencies:
 - **Markdown**: markstream-vue + Shiki + Mermaid + KaTeX
 - **Desktop**: Electron + [electron-vite](https://electron-vite.github.io/) (thin shell whose renderer imports `@memohai/web`'s bootstrap)
 - **Package Manager**: pnpm monorepo
+
+### Browser Gateway (TypeScript)
+- **Runtime**: Bun
+- **Framework**: Elysia
+- **Browser Automation**: Playwright
 
 ### Tooling
 - **Task Runner**: mise
@@ -92,6 +132,7 @@ Memoh/
 │   │       ├── email.go        #       Email send tool
 │   │       ├── subagent.go     #       Sub-agent invocation tool
 │   │       ├── skill.go        #       Skill activation tool
+│   │       ├── browser.go      #       Browser automation tool
 │   │       ├── tts.go          #       Text-to-speech tool
 │   │       ├── federation.go   #       MCP federation tool
 │   │       ├── image_gen.go    #       Image generation tool
@@ -103,6 +144,7 @@ Memoh/
 │   ├── bind/                   #   Channel identity-to-user binding code management
 │   ├── boot/                   #   Runtime configuration provider (container backend detection)
 │   ├── bots/                   #   Bot management (CRUD, lifecycle)
+│   ├── browsercontexts/        #   Browser context management (CRUD)
 │   ├── channel/                #   Channel adapter system
 │   │   ├── adapters/           #     Platform adapters: telegram, discord, feishu, qq, dingtalk, weixin, wecom, wechatoa, matrix, misskey, local
 │   │   └── identities/        #     Channel identity service
@@ -152,6 +194,15 @@ Memoh/
 │       ├── bridge/             #     gRPC client for in-container bridge service
 │       └── bridgepb/           #     Protobuf definitions (bridge.proto)
 ├── apps/                       # Application services
+│   ├── browser/                #   Browser Gateway (Bun/Elysia/Playwright)
+│   │   └── src/
+│   │       ├── index.ts        #     Elysia server entry point
+│   │       ├── browser.ts      #     Playwright browser lifecycle
+│   │       ├── modules/        #     Route modules (action, context, devices, session, cores)
+│   │       ├── middlewares/     #     CORS, error handling, bearer auth
+│   │       ├── types/          #     TypeScript type definitions
+│   │       ├── storage.ts      #     Browser context storage
+│   │       └── models.ts       #     Zod request schemas
 │   ├── desktop/                #   Electron desktop app (@memohai/desktop, electron-vite; renderer imports @memohai/web)
 │   └── web/                    #   Main web app (@memohai/web, Vue 3) — see apps/web/AGENTS.md
 ├── packages/                   # Shared TypeScript libraries
@@ -202,7 +253,7 @@ Memoh/
 2. Install toolchains and dependencies: `mise install`
 3. Initialize the project: `mise run setup`
 4. Start the dev environment: `mise run dev`
-5. Dev web UI: `http://localhost:18082` (server: `18080`)
+5. Dev web UI: `http://localhost:18082` (server: `18080`, browser gateway: `18083`)
 
 ### Common Commands
 
@@ -246,7 +297,7 @@ docker compose up -d        # Start all services
 ```
 
 Production services: `postgres`, `migrate`, `server`, `web`.
-Optional profiles: `qdrant` (vector DB), `sparse` (BM25 search).
+Optional profiles: `qdrant` (vector DB), `sparse` (BM25 search), `browser` (browser automation).
 
 ## Key Development Rules
 
@@ -337,6 +388,7 @@ The canonical source of truth for the full PostgreSQL schema is `db/postgres/mig
 - `users` — User accounts (username, email, role, display_name, avatar)
 - `channel_identities` — Unified inbound identity subject (cross-platform)
 - `user_channel_bindings` — Outbound delivery config per user/channel
+- `channel_identity_bind_codes` — One-time codes for channel identity → user linking
 
 **Bots & Sessions**
 - `bots` — Bot definitions with model references and settings
@@ -380,6 +432,8 @@ The canonical source of truth for the full PostgreSQL schema is `db/postgres/mig
 - `schedule` — Scheduled tasks (cron)
 - `schedule_logs` — Schedule execution logs
 - `bot_heartbeat_logs` — Heartbeat execution records
+- `browser_contexts` — Browser context configurations (Playwright)
+
 **Storage**
 - `storage_providers` — Pluggable object storage backends
 - `bot_storage_bindings` — Per-bot storage backend selection
@@ -399,6 +453,7 @@ The main configuration file is `config.toml` (copied from `conf/app.example.toml
 - `[sqlite]` — SQLite database file and WAL/lock settings
 - `[qdrant]` — Qdrant vector database connection
 - `[sparse]` — Sparse (BM25) search service connection
+- `[browser_gateway]` — Browser Gateway address
 - `[web]` — Web frontend address
 - `[registry]` — Provider registry (`providers_dir` pointing to `conf/providers/`)
 - `[supermarket]` — Supermarket integration (base_url)

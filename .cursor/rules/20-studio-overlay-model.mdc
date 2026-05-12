@@ -1,0 +1,52 @@
+---
+description: Studio Jarvis durable data, skills, memory roles, MCP/sidecars; overlay must be disableable.
+globs:
+alwaysApply: true
+---
+
+# Studio Jarvis overlay model
+
+## Durable Studio data (`/data/studio`)
+
+Studio Jarvis **system-of-record style** structured data belongs under **`/data/studio/`**, for example:
+
+- `/data/studio/people.md`
+- `/data/studio/projects.json`
+- `/data/studio/chats.json`
+- `/data/studio/tasks.json`
+- `/data/studio/events*.jsonl` (when append-only timelines are appropriate)
+
+Paths may be mirrored under deployment templates (e.g. `deploy/…/data/`) for packaging; runtime truth remains the **`/data/studio`** contract on the bot/workspace side as documented for the deployment.
+
+## Managed skills
+
+Use **managed skills** for **behavior**, **workflows**, and **style** — not as giant databases.
+
+- Do **not** embed large registries (full employee lists, full project directories, bulk chat exports) inside skill bodies.
+- Keep skills **readable**, **versionable**, and **under token limits**; link or read from `/data/studio` files instead.
+
+## Memory
+
+Use **Memory** for **conversation-linked facts** and **retrieval** (per upstream memory docs).
+
+- Do **not** use Memory as the **source of truth** for employees, projects, chats, or task registries when `/data/studio` files are the right store.
+
+## MCP, tools, sidecars
+
+Prefer **MCP**, **tools**, and **sidecars** for integrations and automation that would otherwise tempt core patches.
+
+## Disableability
+
+A **plugin / sidecar / Studio overlay** must be **disableable**:
+
+- Turning Studio off should **not** break **normal Memoh** operation for the same bot/workspace.
+
+## Upstream upgrades
+
+Design Studio features so that **updating Memoh upstream** does not require **rewriting** Studio features: rely on documented extension points, data files, skills, and MCP — not private internals.
+
+## Anti-patterns
+
+- Large copy-pasted JSON or markdown registries inside a single skill file.
+- Silent dependency on fork-only Go behavior.
+- Hard dependency on undefined SQL schema from Studio experiments in core migrations without approved RFC.
