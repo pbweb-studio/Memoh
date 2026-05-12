@@ -2,7 +2,9 @@
 
 **Ветка baseline:** `studio/native-baseline-20260512`  
 **Archive-heavy fork:** `studio/archive-heavy-fork-20260512-1245` — использовать **только как reference** (идеи, данные, формулировки). **Не** merge source для восстановления кода и **не** источник истины для Studio custom в core.  
-**Связанные документы:** [`NATIVE_RUNTIME_AUDIT_RESULTS.md`](./NATIVE_RUNTIME_AUDIT_RESULTS.md), [`STUDIO_RESTORE_DECISION_MATRIX.md`](./STUDIO_RESTORE_DECISION_MATRIX.md)
+**Связанные документы:** [`NATIVE_RUNTIME_AUDIT_RESULTS.md`](./NATIVE_RUNTIME_AUDIT_RESULTS.md), [`STUDIO_RESTORE_DECISION_MATRIX.md`](./STUDIO_RESTORE_DECISION_MATRIX.md), [`STUDIO_NATIVE_MVP_IMPLEMENTATION_PLAN.md`](./STUDIO_NATIVE_MVP_IMPLEMENTATION_PLAN.md).
+
+**Готовый native bundle (шаблоны данных, skills, runbook, acceptance):** [`deploy/studio-jarvis-native/README.md`](../deploy/studio-jarvis-native/README.md) — **first implementation batch** подготовлен в репозитории **без** правок Memoh core; перенос в workspace бота — вручную по [`RUNBOOK.md`](../deploy/studio-jarvis-native/RUNBOOK.md).
 
 ---
 
@@ -99,8 +101,10 @@ Clean Memoh core (upstream-first; без studio-custom patches по умолча
 
 ## Следующий крупный шаг (рекомендация)
 
-Короткий **runtime Heartbeat** (включить на тест, посмотреть логи) и при продуктовой необходимости — **подтверждение Telegram-клиентом** доставки digest из schedule; параллельно **Studio Control** UX-аудит, если Mini App важен.
+1. **Ручной rollout Studio Jarvis Native:** настройка бота по [`deploy/studio-jarvis-native/RUNBOOK.md`](../deploy/studio-jarvis-native/RUNBOOK.md) и проверка по [`ACCEPTANCE_CHECKLIST.md`](../deploy/studio-jarvis-native/ACCEPTANCE_CHECKLIST.md).  
+2. Затем — короткий **runtime Heartbeat** (включить на тест, посмотреть логи) и при продуктовой необходимости — **подтверждение Telegram-клиентом** доставки digest из schedule.  
+3. Параллельно при необходимости — **Studio Control** UX-аудит; отдельно — план **sidecar / MCP / thin overlay** только после явного gap (RFC).
 
 ---
 
-*Автокоммит не выполнялся.*
+*Коммиты bundle см. историю git на ветке `studio/native-baseline-20260512` (сообщение `docs(studio): add native studio jarvis bundle`).*

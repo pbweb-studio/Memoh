@@ -1,0 +1,20 @@
+{
+  "chats": [
+    {
+      "id": "chat-audit-internal",
+      "title": "AuditNative — internal",
+      "type": "internal",
+      "telegram_chat_ref": "telegram:PLACEHOLDER_INTERNAL_SUPERGROUP",
+      "project_ids": ["proj-audit-native"],
+      "status": "active"
+    },
+    {
+      "id": "chat-audit-client",
+      "title": "AuditNative — client",
+      "type": "client",
+      "telegram_chat_ref": "telegram:PLACEHOLDER_CLIENT_GROUP",
+      "project_ids": ["proj-audit-native"],
+      "status": "active"
+    }
+  ]
+}

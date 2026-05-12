@@ -1,0 +1,14 @@
+{
+  "tasks": [
+    {
+      "id": "task-prepare-audit-summary",
+      "title": "Prepare native audit summary",
+      "project_id": "proj-audit-native",
+      "assignee_handle": "@ibambets",
+      "status": "open",
+      "priority": "high",
+      "due_date": "2026-05-20",
+      "source": "studio-native-mvp-template"
+    }
+  ]
+}

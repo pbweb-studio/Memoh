@@ -1,0 +1,3 @@
+{"ts":"2026-05-12T10:00:00Z","type":"note","project_id":"proj-audit-native","summary":"Template event: audit kickoff (no real chat id)."}
+{"ts":"2026-05-12T11:30:00Z","type":"status_change","task_id":"task-prepare-audit-summary","from":"open","to":"open","summary":"Template event: reminder ping."}
+{"ts":"2026-05-12T12:00:00Z","type":"meeting","project_id":"proj-audit-native","summary":"Template event: internal sync (placeholder)."}

@@ -1,0 +1,13 @@
+{
+  "projects": [
+    {
+      "id": "proj-audit-native",
+      "name": "AuditNative",
+      "status": "active",
+      "notes": "Example native audit project for Studio baseline templates.",
+      "owner_handle": "@grvtkv",
+      "chat_ids": ["chat-audit-internal", "chat-audit-client"],
+      "task_ids": ["task-prepare-audit-summary"]
+    }
+  ]
+}
