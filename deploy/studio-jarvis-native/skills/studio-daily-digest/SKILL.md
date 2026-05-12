@@ -1,6 +1,6 @@
 ---
 name: studio-daily-digest
-description: Поведение для Schedule: краткий daily digest из файлов /data/studio без custom harvester.
+description: "Поведение для Schedule: краткий daily digest из файлов /data/studio без custom harvester."
 ---
 
 # Studio — daily digest (Schedule)
