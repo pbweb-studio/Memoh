@@ -6,6 +6,8 @@
 
 **Уточнение по экземпляру Studio Jarvis Native (локальный compose, 2026-05-12):** для бота **`994b7558-…`** зафиксирована **финальная Telegram-приёмка** (DM + group + `/access@jarvispbweb_bot` + strict `/data/studio/*` + burst с caveat — см. [`NATIVE_RUNTIME_AUDIT_RESULTS.md`](./NATIVE_RUNTIME_AUDIT_RESULTS.md) **E.8b**, [`ACCEPTANCE_CHECKLIST.md`](../deploy/studio-jarvis-native/ACCEPTANCE_CHECKLIST.md)). Классификация строк таблицы по-прежнему относится к **возможностям Memoh native**; токены задаются только в UI и **не** дублируются в доках.
 
+**Cleanup status (ветка `studio/native-baseline-20260512`, 2026-05-12):** в **tracked** дереве **нет** старого `deploy/studio-jarvis/**` и перечисленных в политике internal Studio custom путей — строки таблицы про **do not restore** остаются **проактивной политикой** и исторический heavy custom **не** присутствует в текущем индексе ветки. Детали инвентаризации — раздел **Cleanup result** в [`NATIVE_NEXT_ARCHITECTURE_RECOMMENDATION.md`](./NATIVE_NEXT_ARCHITECTURE_RECOMMENDATION.md).
+
 Легенда колонки **Native result:** `native` | `native with config` | `files/skills/memory` | `MCP` | `sidecar` | `thin overlay` | `not tested` | `do not restore`
 
 | Feature | Native result | Recommended home | Restore old custom? | Core-touch allowed? | Evidence | Notes |
@@ -44,5 +46,3 @@
 - **old inbound/channel patches:** **do not restore** для **DM и group MVP** (подтверждено **E.6–E.8** и **E.8b** для SJN). Возврат — **только** при **явном** продуктовом требовании: пассивное прослушивание **всех** сообщений группы без mention и/или отдельная **жёсткая** семантика очереди вне штатного поведения (**RFC**).  
 - **old task harvester / custom cron (archive):** **do not restore** для MVP при работающем **Schedule** (Block **G**). Пересмотр — только при явном требовании, не закрываемом **Schedule + Heartbeat + MCP/sidecar** (**RFC**).  
 - **memory context packer hooks:** **do not restore** for people/project lookup — закрывается провайдером памяти и файловыми SoT.
-
-*Автокоммит не выполнялся.*

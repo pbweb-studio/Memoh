@@ -10,6 +10,17 @@
 
 ---
 
+## Cleanup result (ветка `studio/native-baseline-20260512`, 2026-05-12)
+
+- **Inventory:** поверх merge-base с `upstream/main` в истории ветки появляются только **`deploy/studio-jarvis-native/**`** и **`docs/studio/*`** (native MVP и аудит). Прямое сравнение дерева `git diff upstream/main HEAD` дополнительно показывает отличия в `apps/desktop/**`, `apps/web/**`, `mise.toml` — это **не** studio-overlay на baseline, а то, что **tip `upstream/main` ушёл вперёд** относительно HEAD (ветка отстаёт от main на merge-коммит с desktop fix); core на baseline **не** патчился под Studio.
+- **Старый heavy Studio custom в tracked files:** **`deploy/studio-jarvis/**` нет**; путей вида **`internal/studio*`**, **`internal/channel/studiochat*`**, **`internal/studioapp*`**, **`resolver_studio*`**, **`handlers/studio*`** в дереве **нет** — **удалять из индекса нечего**, ветка уже **без** перечисленного obsolete custom.
+- **Локальный репозиторий:** с диска удалены только **очевидные untracked** временные артефакты аудита (`.local-web-audit/`, корневые `*_deploy*.tar.gz` / `deploy-*.tar.gz`, `*_deepseek*.sql`, `_tail_session.sql`, `_vps_*.txt`). **Не** трогались `.env`, `config.toml`, бэкапы `SOUL.md.bak`, скрипты вида `_patch_*.sh`, `scripts/deepseek_vision_probe.py` и прочее, где есть риск задеть рабочие заметки или исходники.
+- **Archive branch** `studio/archive-heavy-fork-20260512-1245` — по-прежнему **только reference**, не merge source.
+- **Native MVP assets** — **сохранены** (`deploy/studio-jarvis-native/**`, `docs/studio/NATIVE_*`, матрица restore, план MVP, layer separation).
+- **Forbidden custom** (Go resolver, sqlc/store patches, inbound/channel patches, legacy ModeQueue, packer hooks, harvester/custom cron) — **не** возвращать; политика в [`STUDIO_RESTORE_DECISION_MATRIX.md`](./STUDIO_RESTORE_DECISION_MATRIX.md) без изменения смысла.
+
+---
+
 ## Краткий статус native audit
 
 - **Studio Jarvis Native bundle (Web + Schedule UI-smoke + **финальная Telegram-приёмка**, 2026-05-12):** Web strict reads + managed skills — **pass**. **Schedule:** тест `StudioNativeFinalScheduleSmoke` создан/сработал (`schedule completed` ok в логах) и **удалён** через UI. **Telegram (SJN, `@jarvispbweb_bot`):** **DM pass**; **group MVP pass** (`/access@jarvispbweb_bot`, mention, strict `/data/studio/*`); **burst — pass with caveat** (см. [`NATIVE_RUNTIME_AUDIT_RESULTS.md`](./NATIVE_RUNTIME_AUDIT_RESULTS.md) **E.8b** и [`ACCEPTANCE_CHECKLIST.md`](../deploy/studio-jarvis-native/ACCEPTANCE_CHECKLIST.md)): A и C — полные ответы; B в пачке — в основном reaction/ack; B отдельно — полный ответ по `projects.json`; **strict queue semantics** для burst **не** обязательны для MVP; **ModeQueue custom из archive не возвращать** автоматически.
