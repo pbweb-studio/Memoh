@@ -90,8 +90,9 @@ Telegram group (discuss)
       "enabled": true,
       "telegram_chat_id": "-5126105025",
       "title": "Лидоруб PB х Бионика",
-      "memoh_session_id": "f745d4af-b869-4b65-968c-7c726c323707",
-      "memoh_route_id": "aa213be8-7d0c-45bf-897f-ed4019312f44",
+      "aliases": ["лидоруб", "лидоруб pb"],
+      "session_id": "f745d4af-b869-4b65-968c-7c726c323707",
+      "route_id": "aa213be8-7d0c-45bf-897f-ed4019312f44",
       "owner_channel_identity_id": "",
       "report_visibility": {
         "local_chat": true,
@@ -121,13 +122,17 @@ Telegram group (discuss)
 
 Поля **`report_visibility`**: `local_chat` — разрешить отчёт прямо в рабочем stat-чате (§4.1.A); `control_chats` — список управленческих маршрутов, где разрешена агрегированная статистика по этому источнику или по типу (§4.1.B). Ранее использовавшееся имя **`allowed_control_targets`** можно считать устаревшим alias к `report_visibility.control_chats` при миграции реестра.
 
+**`aliases`**: необязательный массив коротких строк для NL-запросов из **control** («по лидорубу» и т.п.); matching — подстрока без учёта регистра (см. managed skill **`studio-chat-stats`**). В продакшене поле можно не заводить, если достаточно уникального `title`.
+
+В **репозитории** эталонный пример реестра — `deploy/studio-jarvis-native/data/stat_sources.example.json` (поля **`session_id`** / **`route_id`**; не путать с историческими именами `memoh_session_id` в черновых схемах).
+
 **`local_commands`**: подсказки для skill (не перехватываются ядром); сопоставление с реальными фразами сотрудников — по префиксу/regex в overlay.
 
 **`allowed_requesters`**: опционально, кто может запрашивать **local**-отчёт в этом чате (Telegram `@handle`, роль «админ группы», allowlist channel identity id и т.д.). Если пусто — политика «любой участник группы» или только owner (зафиксировать в `SKILL.md`).
 
 ### 5.2 `/data/studio/chats.json` (опционально)
 
-Человеко-ориентированный alias-файл («лидоруб» → `source_id`) для NL-запросов из **control** и для подсказок **local**-фраз; может дублировать subset полей (`report_visibility`, `type`). **Не** обязателен, если в skill жёстко маппить nicknames из `stat_sources.title`.
+Человеко-ориентированный alias-файл («короткое имя» → `source_id`) для NL-запросов из **control** и для подсказок **local**-фраз; может дублировать subset полей (`report_visibility`, `type`). **Не** обязателен, если в **`stat_sources.json`** задан массив **`aliases`** у каждого source или достаточно однозначных `title`.
 
 **Типы `type`:** `leads` | `sales` | `tasks` | `support` | `client_updates` | `custom` (строка; для `custom` в `report_rules` хранить произвольные hints).
 

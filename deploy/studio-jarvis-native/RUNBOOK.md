@@ -66,6 +66,7 @@
 2. Вставьте **полный** текст `SKILL.md` из `deploy/studio-jarvis-native/skills/<name>/SKILL.md` (YAML frontmatter + тело). **Сохраните**.
 3. Повторите для имён: `studio-jarvis-behavior`, `studio-people-source`, `studio-project-registry`, `studio-daily-digest`, **`studio-chat-stats`**, **`studio-telegram-import`**.
 4. Нажмите **Refresh** в списке skills при необходимости; в карточках должны быть бейджи **Managed** + **Effective**.
+5. После **`git pull`** / обновления bundle: **перезалейте** текст managed skills из репозитория (в первую очередь **`studio-chat-stats`**, **`studio-telegram-import`**): UI/API **не** синхронизируют `SKILL.md` с git автоматически.
 
 **YAML:** в поле `description:` не оставляйте неэкранированный текст с двоеточием вроде `Schedule: ...` без кавычек — иначе `POST .../container/skills` вернёт `400 invalid YAML frontmatter`. Безопасно: `description: "..."`.
 
@@ -119,7 +120,7 @@ python3 "${CANON}/tools/import_telegram_html.py" \
 
 **Дедупликация `target_lead`:** помимо `event_id`, скрипт схлопывает строки с одним и тем же **семантическим ключом** (источник + дата + нормализованный телефон, либо имя+город без телефона), чтобы ручные `evt_*` / `lead-*` не дублировали `telegram-message-*` при повторном импорте.
 
-**Smoke:** затем в UI — «Подбей статистику целевых за …» (skill **`studio-chat-stats`**).
+**Smoke:** затем в UI — любая формулировка из раздела **«6.2 Примеры фраз»** в `CHAT_STATS_MVP_RUNBOOK.md` (skill **`studio-chat-stats`**).
 
 ### Production rollout
 
