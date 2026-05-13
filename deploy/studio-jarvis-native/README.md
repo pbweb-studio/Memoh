@@ -6,8 +6,8 @@
 
 | Путь | Назначение |
 |------|------------|
-| `data/` | Примеры для **`/data/studio/`**: `people.md`, JSON-реестры, **`stat_sources.example.json`**, **`events/leads-*.example.jsonl`**. |
-| `skills/` | Шаблоны `SKILL.md` (в т.ч. **`studio-chat-stats`**, **`studio-telegram-import`**) — копировать в managed skills через UI/API. |
+| `data/` | Примеры для **`/data/studio/`**: `people.md`, JSON-реестры, **`stat_sources.example.json`**, **`report_schemas/*.example.json`**, **`events/leads-*.example.jsonl`**. |
+| `skills/` | Шаблоны `SKILL.md` (в т.ч. **`studio-chat-stats`**, **`studio-stat-onboarding`**, **`studio-telegram-import`**) — копировать в managed skills через UI/API. |
 | `tools/` | **`import_telegram_html.py`** — детерминированный импорт Telegram Desktop HTML → JSONL (копировать в **`/data/studio/tools/`** в workspace бота, т.е. на хосте `.../workspace-data/<bot_id>/studio/tools/`). |
 | `RUNBOOK.md` | Пошаговая настройка через UI (без секретов в тексте). |
 | `ACCEPTANCE_CHECKLIST.md` | Ручная проверка после деплоя конфигурации. |
@@ -44,7 +44,7 @@
 > **Git:** в корне репозитория правило `.gitignore` игнорирует любой путь с сегментом `data`. Шаблоны в `deploy/studio-jarvis-native/data/` уже учтены в истории; при локальном первом добавлении используйте `git add -f deploy/studio-jarvis-native/data/`.
 
 1. Прочитайте **`RUNBOOK.md`** и выполните шаги в UI.
-2. Скопируйте содержимое `data/*` в **`/data/studio/`** бота (`stat_sources.json` из `stat_sources.example.json`, события лидов из `data/events/leads-*.example.jsonl`; при необходимости переименуйте `events.example.jsonl` в рабочий `events.jsonl`).
+2. Скопируйте содержимое `data/*` в **`/data/studio/`** бота (`stat_sources.json` из `stat_sources.example.json`, при необходимости `data/report_schemas/*.example.json` → `/data/studio/report_schemas/`, события лидов из `data/events/leads-*.example.jsonl`; при необходимости переименуйте `events.example.jsonl` в рабочий `events.jsonl`).
 3. Создайте managed skills и вставьте тексты из `skills/*/SKILL.md`.
 4. Пройдите **`ACCEPTANCE_CHECKLIST.md`**.
 

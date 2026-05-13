@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "kind": "leads_report",
+  "title": "Example leads report schema (copy to /data/studio/report_schemas/)",
+  "timezone_default": "Europe/Moscow",
+  "event_types": [
+    "target_lead",
+    "summary_report",
+    "operational_note"
+  ],
+  "extraction_hints": "Используй только как текстовые подсказки для формулировки ответа. Счётчики и фильтры в отчёте определяются skill studio-chat-stats по JSONL; не подменяй SoT.",
+  "metrics_definitions": {
+    "target_lead_count": "Количество строк с event_type=target_lead после фильтра по source_id и дате.",
+    "summary_report_count": "Количество строк с event_type=summary_report за день (сводки).",
+    "operational_note_count": "Количество строк с event_type=operational_note за день.",
+    "call_today": "Подмножество target_lead по полям call_when/status по смыслу «сегодня» (как в текущем skill).",
+    "call_tomorrow": "Аналогично для «завтра».",
+    "no_phone": "target_lead с пустым/null phone.",
+    "needs_review": "target_lead с needs_review=true."
+  },
+  "synonym_groups": {
+    "comment": "Редактируемые группы для NL-corrections в будущих фазах; не хардкодить в коде.",
+    "examples": []
+  }
+}

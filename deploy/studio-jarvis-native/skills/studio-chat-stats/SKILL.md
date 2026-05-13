@@ -9,7 +9,7 @@ description: "Stat sources из /data/studio/stat_sources.json, события �
 
 Ты помогаешь **Studio Jarvis** вести учёт и отчёты **только** из файлов:
 
-- **`/data/studio/stat_sources.json`** — зарегистрированные stat-источники: `id`, `type`, `title`, `aliases`, `session_id`, видимость отчётов.
+- **`/data/studio/stat_sources.json`** — зарегистрированные stat-источники: `id`, `type`, `title`, `aliases`, `session_id`, видимость отчётов, опционально **`report_schema_ref`** (подсказка для формулировки, не источник цифр).
 - **`/data/studio/events/leads-YYYY-MM-DD.jsonl`** — одна строка = одно событие (append-only). **SoT для цифр** по типу **`leads`**.
 
 **Memory не использовать** как базу лидов и не подменять им JSONL.
@@ -55,7 +55,7 @@ description: "Stat sources из /data/studio/stat_sources.json, события �
 ### C. Незарегистрированный / запрещённый чат
 
 - Не local и не control → **не отдавай** цифры; объясни, что чат **не зарегистрирован** как stat source или нет прав.
-- Предложи: **`/studio_init leads`** или фразу «инициализируй этот чат как чат лидов» (после проверки политики ACL).
+- Предложи: managed skill **`studio-stat-onboarding`** (NL) или **`/studio_init leads`** / «инициализируй этот чат как чат лидов» в **`studio-chat-stats`** (после проверки политики ACL).
 
 ## Порядок сопоставления source (control или уточнение чата)
 
@@ -78,6 +78,7 @@ description: "Stat sources из /data/studio/stat_sources.json, события �
 1. **`read`** `/data/studio/stat_sources.json` (целиком для MVP, если разумный размер).
 2. Классифицируй **local / control / запрет** (раздел выше).
 3. Выбери **один или несколько** `source` (`type=leads`) по порядку сопоставления.
+3a. Если среди выбранных источников у кого-то задано непустое **`report_schema_ref`**: для **каждого уникального** пути выполни не более одного **`read`**. Используй содержимое файла **только** как текстовую подсказку (формулировки метрик, пояснение типов событий для пользователя). **Не** меняй правила подсчёта и **не** извлекай из схемы числовые факты: **все цифры** — только из JSONL по шагам 5–8 ниже.
 4. **Дата:** `ДД.ММ.ГГГГ` → `YYYY-MM-DD`; «сегодня»/«вчера»/today/yesterday → календарная дата (часовой пояс: из `report_rules.timezone` у source, иначе один раз уточни; по умолчанию ориентир — `Europe/Moscow`, если политика команды не задана).
 5. Построй путь **`/data/studio/events/leads-YYYY-MM-DD.jsonl`** и **обязательно `read`** его.
 6. Если файл **есть и не пустой**: парси строки JSON; для **числа целевых** и списка лидов используй **`event_type == target_lead`**; фильтруй по **`source_id`** выбранного источника (или суммируй по нескольким в ветке «все leads»). Учитывай **`summary_report`** / **`operational_note`** в текстовой сводке (счётчики), не смешивая их с «целевым лидом» без явного запроса пользователя.
@@ -88,11 +89,12 @@ description: "Stat sources из /data/studio/stat_sources.json, события �
 
 - `version`, `sources[]`
 - каждый `source`: **`id`**, **`type`** (`leads`, …), **`title`**, **`aliases`** (опционально: массив строк для NL в control), **`telegram_chat_id`**, **`session_id`**, **`route_id`**, **`enabled`**
+- опционально **`report_schema_ref`** — строка-путь к JSON под `/data/studio/...` (описание метрик для LLM; **не** источник цифр; см. примеры в репозитории `deploy/studio-jarvis-native/data/report_schemas/*.example.json`)
 - **`report_visibility.local_chat`**, **`report_visibility.control_chats`** (массив строк conversation id)
 - **`local_commands`** — примеры фраз (подсказка; **не** единственный триггер)
 - **`allowed_requesters`** — пусто = политика «участники чата» unless ужесточено владельцем
 
-**Инициализация:** `/studio_init leads` или NL «инициализируй этот чат как чат лидов» — запись в реестр с корректным `type` и `report_visibility`.
+**Инициализация:** предпочтительно NL в managed skill **`studio-stat-onboarding`**; либо **`/studio_init leads`** или NL «инициализируй этот чат как чат лидов» в этом skill — запись в реестр с корректным `type` и `report_visibility` (и при необходимости **`report_schema_ref`**).
 
 **Статус:** `/studio_status`, `/studio_disable` — читай/обновляй реестр.
 
@@ -108,7 +110,7 @@ description: "Stat sources из /data/studio/stat_sources.json, события �
 
 ## Связь с другими skills
 
-**`studio-jarvis-behavior`**, **`studio-people-source`**, импорт истории — **`studio-telegram-import`**.
+**`studio-jarvis-behavior`**, **`studio-people-source`**, **`studio-stat-onboarding`** (первичная регистрация чата), импорт истории — **`studio-telegram-import`**.
 
 ---
 

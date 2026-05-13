@@ -6,8 +6,9 @@ Overlay для учёта лидов и отчётов без правок Memoh
 
 | Путь | Назначение |
 |------|------------|
-| `/data/studio/stat_sources.json` | Реестр stat-чатов: `id`, `type`, `title`, **`aliases`** (опционально), `session_id`, `report_visibility`, `local_commands`. |
+| `/data/studio/stat_sources.json` | Реестр stat-чатов: `id`, `type`, `title`, **`aliases`** (опционально), `session_id`, `report_visibility`, `local_commands`, опционально **`report_schema_ref`**. |
 | `/data/studio/events/leads-YYYY-MM-DD.jsonl` | События за календарный день (одна строка = один JSON). **Не** Memory. |
+| `/data/studio/report_schemas/*.json` | Опционально: человекочитаемое описание метрик/типов событий для отчёта (шаблоны в репо: `deploy/studio-jarvis-native/data/report_schemas/*.example.json`). |
 
 В контейнере агента **`/data/studio`** — это **workspace bridge** к каталогу бота на хосте. **Canonical SoT на хосте (типичный Docker Compose Memoh):**
 
@@ -17,19 +18,30 @@ Overlay для учёта лидов и отчётов без правок Memoh
 
 Импорт Telegram HTML и любые правки `stat_sources.json` / `events/leads-*.jsonl` должны выполняться с **`--studio-dir`**, указывающим на **canonical workspace-data** (или с эквивалентным `/data/studio` внутри контейнера агента через `exec` — см. skill **`studio-telegram-import`**).
 
+## 1a. Report schemas (Phase 1)
+
+| Путь в репозитории (шаблон) | После копирования в runtime (пример) |
+|----------------------------|--------------------------------------|
+| `deploy/studio-jarvis-native/data/report_schemas/leads.v1.example.json` | `/data/studio/report_schemas/leads.v1.json` |
+| `deploy/studio-jarvis-native/data/report_schemas/daily_metrics.v1.example.json` | `/data/studio/report_schemas/daily_metrics.v1.json` (опционально) |
+
+- В **`stat_sources.json`** у `source` можно задать **`report_schema_ref`**: строка-путь к JSON схемы под `/data/studio/...` (см. `stat_sources.example.json`).
+- **Phase 1:** схема не заменяет подсчёт из JSONL; только текстовые определения метрик для ответа агента (см. **`studio-chat-stats`**).
+- **Версии:** см. [CHAT_STATS_NATIVE_PLAN.md §5.1.1](./CHAT_STATS_NATIVE_PLAN.md).
+
 ## 2. Зарегистрировать новый stat-чат
 
 1. Добавьте бота в Telegram-группу, убедитесь что passive-сообщения сохраняются (см. логи `passive_saved=true`).
 2. Узнайте `session_id` / `route_id` (Web UI → сессии, или лог ingest, или `list_sessions` в чате).
-3. Скопируйте шаблон из репозитория: `deploy/studio-jarvis-native/data/stat_sources.example.json` → через **Files** вставьте новый объект в массив `sources` (или отредактируйте существующий).
-4. В группе отправьте **`/studio_init leads`** или фразу «инициализируй этот чат как чат лидов» — обрабатывает managed skill **`studio-chat-stats`** (не ядро Memoh).
+3. Скопируйте шаблон из репозитория: `deploy/studio-jarvis-native/data/stat_sources.example.json` → через **Files** вставьте новый объект в массив `sources` (или отредактируйте существующий). При необходимости скопируйте файлы из `deploy/studio-jarvis-native/data/report_schemas/*.example.json` в `/data/studio/report_schemas/` и пропишите **`report_schema_ref`**.
+4. В группе отправьте NL для managed skill **`studio-stat-onboarding`** (рекомендуется) или **`/studio_init leads`** / «инициализируй этот чат как чат лидов» — см. skill **`studio-chat-stats`**.
 5. Проверьте ответ бота и содержимое `stat_sources.json`.
 
-## 3. Установить / обновить skill `studio-chat-stats`
+## 3. Установить / обновить skills (chat stats, onboarding, import)
 
 1. **Settings → Bot → Skills → New Skill** (или редактирование существующего).
-2. Вставьте полный текст `deploy/studio-jarvis-native/skills/studio-chat-stats/SKILL.md` (frontmatter + тело). Сохраните.
-3. Убедитесь, что skill **Effective** и не shadowed.
+2. Вставьте полный текст `SKILL.md` (frontmatter + тело) для: **`studio-chat-stats`**, **`studio-stat-onboarding`**, **`studio-telegram-import`** — файлы в `deploy/studio-jarvis-native/skills/<name>/SKILL.md`. Сохраните.
+3. Убедитесь, что skills **Effective** и не shadowed.
 
 Альтернатива: `POST /api/bots/{bot_id}/container/skills` с массивом строк markdown — см. `deploy/studio-jarvis-native/RUNBOOK.md` §8.
 

@@ -126,6 +126,15 @@ Telegram group (discuss)
 
 В **репозитории** эталонный пример реестра — `deploy/studio-jarvis-native/data/stat_sources.example.json` (поля **`session_id`** / **`route_id`**; не путать с историческими именами `memoh_session_id` в черновых схемах).
 
+### 5.1.1 `report_schemas/` и `report_schema_ref` (Phase 1)
+
+- **`report_schema_ref`** в каждом `source` — опциональная **строка-путь** к JSON под `/data/studio/` (типично `/data/studio/report_schemas/<name>.v1.json`). Назначение в Phase 1: **человекочитаемое описание** метрик и типов событий для LLM (managed skill **`studio-chat-stats`** может сделать `read` этого файла как подсказку к формулировке ответа; **цифры по-прежнему только из** `events/*.jsonl`).
+- **Примеры в репозитории** (копировать в runtime вручную через Files):  
+  `deploy/studio-jarvis-native/data/report_schemas/leads.v1.example.json` → в runtime, например, `/data/studio/report_schemas/leads.v1.json`;  
+  `deploy/studio-jarvis-native/data/report_schemas/daily_metrics.v1.example.json` — опциональный шаблон дневных агрегатов.
+- **Жизненный цикл версий:** при смене смысла отчёта создавайте новый файл `*.v2.json` (или новое имя), обновите `report_schema_ref` в `stat_sources.json`, сохраните старую версию на диске (rename или backup `*.bak-<timestamp>`). Не перезаписывайте продакшен-схему без копии.
+- **Canonical path:** схемы лежат в том же дереве, что и остальной Studio SoT — workspace бота (`workspace-data/<bot_id>/studio` на хосте), не в отдельном `memoh_memoh_studio`, если mounts не унифицированы.
+
 **`local_commands`**: подсказки для skill (не перехватываются ядром); сопоставление с реальными фразами сотрудников — по префиксу/regex в overlay.
 
 **`allowed_requesters`**: опционально, кто может запрашивать **local**-отчёт в этом чате (Telegram `@handle`, роль «админ группы», allowlist channel identity id и т.д.). Если пусто — политика «любой участник группы» или только owner (зафиксировать в `SKILL.md`).
@@ -142,7 +151,7 @@ Telegram group (discuss)
 
 | команда / фраза | native без core? | overlay механизм |
 |-----------------|------------------|------------------|
-| `/studio_init leads` | **Нет** как встроенный slash | Skill: если сообщение начинается с `/studio_init` **или** NL «инициализируй этот чат как …» — выполнить протокол записи в `stat_sources.json` через **file/workspace tools** (и подтвердить `send` в текущий чат). При создании записи выставить **`report_visibility`** / **`local_commands`** / **`allowed_requesters`** по политике. |
+| `/studio_init leads` | **Нет** как встроенный slash | Skill **`studio-stat-onboarding`** (NL без JSON) или **`studio-chat-stats`**: если сообщение начинается с `/studio_init` **или** NL «инициализируй этот чат как …» — выполнить протокол записи в `stat_sources.json` через **file/workspace tools** (и подтвердить `send` в текущий чат). При создании записи выставить **`report_visibility`** / **`local_commands`** / **`allowed_requesters`** / при необходимости **`report_schema_ref`** по политике. |
 | `/studio_report today` | Аналогично | **Два режима** (§4.1): если текущий маршрут совпадает с зарегистрированным `telegram_chat_id` и `report_visibility.local_chat=true` — прочитать JSONL **только для этого** `source_id`, ответить **в этот же чат**. Если текущий маршрут ∈ `report_visibility.control_chats` — разрешить отчёт по одному или всем `type` (и проверить ACL/skill policy). Иначе — отказ (§8.C). |
 | `/studio_status` | Аналогично | Skill + чтение `stat_sources.json` / `chats.json`; ответ в текущий чат. |
 | `/studio_disable` | Аналогично | Skill: `enabled:false` для текущего `source_id` (или явно указанного). |

@@ -51,6 +51,7 @@
    - `people.md` — скопируйте из `deploy/studio-jarvis-native/data/people.md` и **замените** содержимое на production SoT (роли, handles, без секретов).
    - `projects.json`, `chats.json`, `tasks.json` — из `data/` этого bundle, затем правьте под реальность.
    - **`stat_sources.json`** — шаблон: `deploy/studio-jarvis-native/data/stat_sources.example.json` (реестр stat-чатов для skill **`studio-chat-stats`**).
+   - **`report_schemas/`** (опционально, Phase 1): скопируйте из репозитория `deploy/studio-jarvis-native/data/report_schemas/*.example.json` в **`/data/studio/report_schemas/`** (например `leads.v1.json`), затем в нужном `source` в `stat_sources.json` задайте **`report_schema_ref`** на этот путь. Старые версии переименовывайте или сохраняйте как `*.bak-<timestamp>` перед перезаписью.
 3. Опционально: события лидов — `deploy/studio-jarvis-native/data/events/leads-YYYY-MM-DD.example.jsonl` → рабочий **`/data/studio/events/leads-YYYY-MM-DD.jsonl`** (append-only).
 4. Опционально: журнал событий по образцу `events.example.jsonl` → рабочий файл, например `events.jsonl` (append-only).
 
@@ -64,9 +65,9 @@
 
 1. **Settings** → выберите бота → **Skills** → **New Skill**.
 2. Вставьте **полный** текст `SKILL.md` из `deploy/studio-jarvis-native/skills/<name>/SKILL.md` (YAML frontmatter + тело). **Сохраните**.
-3. Повторите для имён: `studio-jarvis-behavior`, `studio-people-source`, `studio-project-registry`, `studio-daily-digest`, **`studio-chat-stats`**, **`studio-telegram-import`**.
+3. Повторите для имён: `studio-jarvis-behavior`, `studio-people-source`, `studio-project-registry`, `studio-daily-digest`, **`studio-chat-stats`**, **`studio-stat-onboarding`**, **`studio-telegram-import`**.
 4. Нажмите **Refresh** в списке skills при необходимости; в карточках должны быть бейджи **Managed** + **Effective**.
-5. После **`git pull`** / обновления bundle: **перезалейте** текст managed skills из репозитория (в первую очередь **`studio-chat-stats`**, **`studio-telegram-import`**): UI/API **не** синхронизируют `SKILL.md` с git автоматически.
+5. После **`git pull`** / обновления bundle: **перезалейте** текст managed skills из репозитория (в первую очередь **`studio-chat-stats`**, **`studio-stat-onboarding`**, **`studio-telegram-import`**): UI/API **не** синхронизируют `SKILL.md` с git автоматически.
 
 **YAML:** в поле `description:` не оставляйте неэкранированный текст с двоеточием вроде `Schedule: ...` без кавычек — иначе `POST .../container/skills` вернёт `400 invalid YAML frontmatter`. Безопасно: `description: "..."`.
 
@@ -124,7 +125,7 @@ python3 "${CANON}/tools/import_telegram_html.py" \
 
 ### Production rollout
 
-На проде повторите **вариант A** (или B из защищённого пайплайна с сервисным аккаунтом): не копируйте bundle на сервер без проверки `GET .../container/skills`; после загрузки зафиксируйте в change log, что ключевые skills в состоянии **effective** (включая **`studio-chat-stats`** и **`studio-telegram-import`**).
+На проде повторите **вариант A** (или B из защищённого пайплайна с сервисным аккаунтом): не копируйте bundle на сервер без проверки `GET .../container/skills`; после загрузки зафиксируйте в change log, что ключевые skills в состоянии **effective** (включая **`studio-chat-stats`**, **`studio-stat-onboarding`** и **`studio-telegram-import`**).
 
 ## 9. Schedule — daily digest
 

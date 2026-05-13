@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "kind": "daily_metrics",
+  "title": "Example day-level metrics schema (optional second layer)",
+  "timezone_default": "Europe/Moscow",
+  "description": "Описание агрегатов за календарный день поверх events JSONL; не заменяет строки событий.",
+  "rollup_hints": "Можно задать, какие счётчики показывать в «короткой сводке»: totals по типам, разбивка по source_id для control «по всем лидам».",
+  "allowed_aggregates": [
+    "sum_target_lead_by_source",
+    "count_summary_report_total",
+    "list_sources_touched"
+  ],
+  "notes": "Phase 1: файл-пример в репозитории. Runtime: копировать в /data/studio/report_schemas/ и ссылаться из stat_sources.report_schema_ref при необходимости отдельного дневного дашборда."
+}

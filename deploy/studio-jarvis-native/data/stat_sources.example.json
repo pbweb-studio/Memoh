@@ -8,6 +8,7 @@
       "telegram_chat_id": "-5126105025",
       "session_id": "f745d4af-b869-4b65-968c-7c726c323707",
       "route_id": "aa213be8-7d0c-45bf-897f-ed4019312f44",
+      "report_schema_ref": "/data/studio/report_schemas/leads.v1.json",
       "enabled": true,
       "report_visibility": {
         "local_chat": true,
