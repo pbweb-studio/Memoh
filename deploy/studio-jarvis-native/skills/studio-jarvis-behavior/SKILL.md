@@ -23,4 +23,4 @@ description: Базовая дисциплина Studio Jarvis — приори�
 
 ## Связь с другими skills
 
-Делегируйте детали людей → `studio-people-source`, реестра → `studio-project-registry`, digest → `studio-daily-digest`.
+Делегируйте детали людей → `studio-people-source`, реестра → `studio-project-registry`, digest → `studio-daily-digest`, **статистику Telegram-чатов / JSONL лидов** → `studio-chat-stats`.

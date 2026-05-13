@@ -37,7 +37,7 @@ Telegram group (discuss)
     → extraction job:
           preferred: Schedule → NL → agent tools (list_sessions / search_messages) + parse → append JSONL
           alternate: sidecar → Memoh HTTP API GET .../messages?session_id&before (pagination)
-    → /data/studio/events/{type}/{date}.jsonl  (SoT для аналитики)
+    → /data/studio/events/leads-YYYY-MM-DD.jsonl  (MVP: один файл на день в каталоге `events/`; см. `deploy/studio-jarvis-native/data/events/*.example.jsonl`)
     → report request:
           A) local stat chat → ответ в тот же чат (только свой source_id)
           B) control chat → ответ в control + агрегация по одному или всем источникам типа
@@ -155,7 +155,7 @@ Telegram group (discuss)
 
 ## 7. Leads event schema
 
-Файл: `/data/studio/events/leads/YYYY-MM-DD.jsonl` — одна JSON-строка = одно извлечённое событие (не обязательно 1:1 с сырой строкой чата).
+Файл: **`/data/studio/events/leads-YYYY-MM-DD.jsonl`** (MVP: плоское имя в каталоге `events/`, не вложенная папка `leads/`) — одна JSON-строка = одно извлечённое событие (не обязательно 1:1 с сырой строкой чата).
 
 Рекомендуемые поля:
 
@@ -180,7 +180,7 @@ Telegram group (discuss)
 
 ## 8. Daily report behavior
 
-**Вход:** `stat_sources.json` + `events/leads/YYYY-MM-DD.jsonl` (+ при необходимости прошлые сутки для «вчера»). Источник истины — **только** эти файлы + реестр; **Memory** не использовать как базу лидов.
+**Вход:** `stat_sources.json` + **`/data/studio/events/leads-YYYY-MM-DD.jsonl`** (+ при необходимости прошлые сутки для «вчера»). Источник истины — **только** эти файлы + реестр; **Memory** не использовать как базу лидов.
 
 **Агрегация (логика skill / schedule-команды):**
 
@@ -242,7 +242,7 @@ Telegram group (discuss)
 
 **Гибрид B → при drift качества C:**
 
-1. **SoT:** `stat_sources.json` + `events/leads/*.jsonl` под `/data/studio/`.
+1. **SoT:** `stat_sources.json` + `events/leads-*.jsonl` под `/data/studio/`.
 2. **Init:** managed skill «studio-chat-stats» с триггерами `/studio_init …` и NL; запись через file tools; ручной **Files** fallback.
 3. **Extraction:** nightly **Schedule** с командой вида: «Для каждого enabled `type=leads` в stat_sources за вчера вызови `search_messages` с `session_id` и окном времени; дополни JSONL только новыми `raw_message_id`».
 4. **Report:** поддержать **оба** режима §4.1: **local** (сотрудники в рабочем stat-чате) и **control** (управленческий чат); skill читает JSONL + реестр, **не** Memory.
@@ -253,7 +253,7 @@ Telegram group (discuss)
 - [ ] Добавить бота в **новую** тестовую группу, включить пассив (как сейчас).
 - [ ] Выполнить **init** (`/studio_init leads` или NL) → подтверждение в чате → запись в `stat_sources.json`.
 - [ ] Отправить **3** тестовых сообщения с маркером «Целевой…».
-- [ ] Дождаться Schedule или вручную запустить extraction-команду → появился/обновился **`events/leads/{date}.jsonl`**.
+- [ ] Дождаться Schedule или вручную запустить extraction-команду → появился/обновился **`/data/studio/events/leads-{date}.jsonl`**.
 - [ ] Из **самого зарегистрированного** рабочего чата (напр. лидоруб): `@бот подбей статистику целевых за сегодня` или `/studio_report today` → ответ **в этом же чате**, метрики только по этому `source_id`, при `report_visibility.local_chat=true`.
 - [ ] Из **control**-чата запросить отчёт за сегодня по имени чата / `source_id` → корректные числа; затем запрос «по всем leads» → агрегат по всем enabled источникам типа.
 - [ ] Из **клиентского** или **неразрешённого** чата (не local source, не ∈ `report_visibility.control_chats`) запросить отчёт → **отказ** или нейтральный ответ без цифр (по политике skill).

@@ -50,7 +50,9 @@
 2. Создайте или загрузите:
    - `people.md` — скопируйте из `deploy/studio-jarvis-native/data/people.md` и **замените** содержимое на production SoT (роли, handles, без секретов).
    - `projects.json`, `chats.json`, `tasks.json` — из `data/` этого bundle, затем правьте под реальность.
-3. Опционально: журнал событий по образцу `events.example.jsonl` → рабочий файл, например `events.jsonl` (append-only).
+   - **`stat_sources.json`** — шаблон: `deploy/studio-jarvis-native/data/stat_sources.example.json` (реестр stat-чатов для skill **`studio-chat-stats`**).
+3. Опционально: события лидов — `deploy/studio-jarvis-native/data/events/leads-YYYY-MM-DD.example.jsonl` → рабочий **`/data/studio/events/leads-YYYY-MM-DD.jsonl`** (append-only).
+4. Опционально: журнал событий по образцу `events.example.jsonl` → рабочий файл, например `events.jsonl` (append-only).
 
 ## 8. Managed skills (обязательно через Memoh, не «тихим» копированием на volume)
 
@@ -62,7 +64,7 @@
 
 1. **Settings** → выберите бота → **Skills** → **New Skill**.
 2. Вставьте **полный** текст `SKILL.md` из `deploy/studio-jarvis-native/skills/<name>/SKILL.md` (YAML frontmatter + тело). **Сохраните**.
-3. Повторите для четырёх имён: `studio-jarvis-behavior`, `studio-people-source`, `studio-project-registry`, `studio-daily-digest`.
+3. Повторите для имён: `studio-jarvis-behavior`, `studio-people-source`, `studio-project-registry`, `studio-daily-digest`, **`studio-chat-stats`**.
 4. Нажмите **Refresh** в списке skills при необходимости; в карточках должны быть бейджи **Managed** + **Effective**.
 
 **YAML:** в поле `description:` не оставляйте неэкранированный текст с двоеточием вроде `Schedule: ...` без кавычек — иначе `POST .../container/skills` вернёт `400 invalid YAML frontmatter`. Безопасно: `description: "..."`.
