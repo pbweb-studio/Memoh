@@ -8,6 +8,10 @@ Writes:
   <studio-dir>/events/leads-YYYY-MM-DD.jsonl (upsert by event_id)
 
 Does not modify events/state/events_active.json or people.md.
+
+Host note (Docker): Jarvis Files/read maps container /data/studio to the bot workspace
+.../memoh_memoh_data/_data/workspace-data/<bot_id>/studio. The separate volume
+memoh_memoh_studio is not bot-visible SoT unless mounts are explicitly unified — see runbook.
 """
 
 from __future__ import annotations
@@ -27,6 +31,57 @@ from typing import Any, Iterator
 
 def _now_stamp() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%d-%H%M")
+
+
+def _host_path_normalized(studio: Path) -> str:
+    return str(studio.resolve()).replace("\\", "/")
+
+
+def validate_workspace_studio_dir(
+    studio: Path,
+    *,
+    allow_noncanonical: bool,
+) -> int | None:
+    """
+    Guard against writing to a Docker tree that is not the same as bot-visible /data/studio.
+
+    Returns an exit code (non-zero) to abort, or None to continue.
+    """
+    sp = _host_path_normalized(studio)
+    looks_memoh_studio = "/memoh_memoh_studio/" in sp or sp.rstrip("/").endswith("memoh_memoh_studio/_data")
+    if looks_memoh_studio:
+        print(
+            "WARNING: --studio-dir is under Docker volume memoh_memoh_studio. "
+            "Jarvis Files/read for /data/studio is usually workspace-data/<bot_id>/studio "
+            "on memoh_memoh_data, not this volume. See deploy/studio-jarvis-native/RUNBOOK.md.",
+            file=sys.stderr,
+        )
+        if not allow_noncanonical:
+            print(
+                "ERROR: refusing non-canonical studio dir. Use the workspace-data/<bot_id>/studio path, "
+                "or pass --allow-noncanonical-studio-dir only if mounts are verified.",
+                file=sys.stderr,
+            )
+            return 3
+
+    events_dir = studio / "events"
+    active = studio / "events" / "state" / "events_active.json"
+    if active.is_file():
+        return None
+    if not events_dir.is_dir():
+        print(
+            f"WARNING: {events_dir} is not a directory yet; it will be created when writing JSONL. "
+            "Confirm this path matches what the bot reads as /data/studio (Files tool / workspace bridge).",
+            file=sys.stderr,
+        )
+    else:
+        print(
+            f"WARNING: missing {active} — weak confirmation this is the bot-visible Studio tree. "
+            "Prefer a directory that already contains events/state/events_active.json; "
+            "verify stat_sources.json via Files/read before relying on import output.",
+            file=sys.stderr,
+        )
+    return None
 
 
 def slugify(title: str, max_len: int = 80) -> str:
@@ -414,19 +469,38 @@ def ensure_source_from_cli(
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Import Telegram Desktop HTML export into Studio JSONL.")
+    ap = argparse.ArgumentParser(
+        description="Import Telegram Desktop HTML export into Studio JSONL.",
+        epilog=(
+            "Studio root must be the same tree Jarvis sees as /data/studio (bot workspace "
+            "workspace-data/<bot_id>/studio on host). Do not point --studio-dir at memoh_memoh_studio "
+            "unless you pass --allow-noncanonical-studio-dir and verified mounts."
+        ),
+    )
     ap.add_argument("--input", required=True, help="Path to messages.html")
-    ap.add_argument("--studio-dir", required=True, help="Studio root (contains stat_sources.json, events/)")
+    ap.add_argument(
+        "--studio-dir",
+        required=True,
+        help="Studio root (must match bot-visible /data/studio: stat_sources.json, events/)",
+    )
     ap.add_argument("--source-type", default="leads")
     ap.add_argument("--source-id", default=None)
     ap.add_argument("--telegram-chat-id", default=None)
     ap.add_argument("--session-id", default=None)
     ap.add_argument("--route-id", default=None)
     ap.add_argument("--auto-register-draft", action="store_true")
+    ap.add_argument(
+        "--allow-noncanonical-studio-dir",
+        action="store_true",
+        help="Allow studio dir under memoh_memoh_studio Docker volume (discouraged; verify mounts).",
+    )
     args = ap.parse_args()
 
     input_path = Path(args.input).resolve()
     studio = Path(args.studio_dir).resolve()
+    v = validate_workspace_studio_dir(studio, allow_noncanonical=bool(args.allow_noncanonical_studio_dir))
+    if v is not None:
+        return v
     if not input_path.is_file():
         print(f"ERROR: input not found: {input_path}", file=sys.stderr)
         return 2

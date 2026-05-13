@@ -87,28 +87,35 @@
 
 **В репозитории:** `deploy/studio-jarvis-native/tools/import_telegram_html.py`.
 
-**В рантайме (внутри контейнера агента):** `/data/studio/tools/import_telegram_html.py`. На Docker-хосте это часто тот же файл, что и  
-`/var/lib/docker/volumes/memoh_memoh_studio/_data/tools/import_telegram_html.py`.
+**Canonical SoT на хосте (Studio Jarvis, bot-visible через Files):**
 
-Установка на volume (без перезапуска `memoh-server`):
+`/var/lib/docker/volumes/memoh_memoh_data/_data/workspace-data/<bot_id>/studio`
+
+Внутри контейнера агента тот же каталог монтируется как **`/data/studio`**. Volume **`memoh_memoh_studio`** на многих деплоях **не** совпадает с этим деревом — **не копируйте importer и JSONL туда как единственный источник правды** без проверки `Files/read` и runbook.
+
+**Установка скрипта на canonical volume (без перезапуска `memoh-server`):**
 
 ```bash
-install -d /var/lib/docker/volumes/memoh_memoh_studio/_data/tools
-install -d /var/lib/docker/volumes/memoh_memoh_studio/_data/imports/inbox
-# скопируйте `import_telegram_html.py` из репозитория в .../_data/tools/
+BOT_ID=<uuid_бота>
+CANON=/var/lib/docker/volumes/memoh_memoh_data/_data/workspace-data/${BOT_ID}/studio
+install -d "${CANON}/tools"
+install -d "${CANON}/imports/inbox"
+# скопируйте import_telegram_html.py из репозитория в "${CANON}/tools/"
 ```
 
-**Основной UX:** пользователь прикрепляет HTML в Web UI → в сообщении есть `<attachment path="..."/>` → managed skill **`studio-telegram-import`** ведёт к `exec python3 /data/studio/tools/import_telegram_html.py ...`. У `exec` может быть **approval** в UI — это нормально.
+**Основной UX:** пользователь прикрепляет HTML в Web UI → в сообщении есть `<attachment path="..."/>` → managed skill **`studio-telegram-import`** ведёт к `exec python3 /data/studio/tools/import_telegram_html.py --studio-dir /data/studio ...`. У `exec` может быть **approval** в UI — это нормально.
 
-**Fallback (нет `python3` в среде exec):** на хосте с `python3`:
+**Fallback (нет `python3` в среде exec):** на хосте с `python3`, подставьте **`BOT_ID`** и путь **`CANON`** как выше:
 
 ```bash
-python3 /var/lib/docker/volumes/memoh_memoh_studio/_data/tools/import_telegram_html.py \
-  --input /var/lib/docker/volumes/memoh_memoh_studio/_data/imports/inbox/messages.html \
-  --studio-dir /var/lib/docker/volumes/memoh_memoh_studio/_data \
+python3 "${CANON}/tools/import_telegram_html.py" \
+  --input "${CANON}/imports/inbox/messages.html" \
+  --studio-dir "${CANON}" \
   --source-type leads \
   --source-id <id>
 ```
+
+Писать в **`.../memoh_memoh_studio/_data`** скрипт **отклонит**, если не передан **`--allow-noncanonical-studio-dir`** (только если вы осознанно пишете в другой mount).
 
 **Smoke:** затем в UI — «Подбей статистику целевых за …» (skill **`studio-chat-stats`**).
 

@@ -15,7 +15,11 @@ description: "Импорт истории из Telegram Desktop HTML export (mes
 
 **Memory не использовать** как SoT для цифр; после импорта отчёты — только из JSONL (skill **`studio-chat-stats`**).
 
-## Важно про Telegram Bot API
+## Canonical путь (критично)
+
+В Web UI и в **`exec`** путь **`/data/studio`** — это **workspace bridge**: на хосте Docker это **`/var/lib/docker/volumes/memoh_memoh_data/_data/workspace-data/<bot_id>/studio`**. Импорт **всегда** должен попадать в это дерево (через **`--studio-dir /data/studio`** в контейнере агента или явный **`CANON`** на хосте из runbook).
+
+**Не** считать источником правды отдельный volume **`memoh_memoh_studio`**, если вы не проверили через **Files/read**, что он совпадает с тем же `/data/studio`, который видит бот. При SSH/fallback на хосте используйте **`workspace-data/<bot_id>/studio`**, а не «первый попавшийся» studio volume.
 
 Бот **не может** прочитать «старую» историю чата через Bot API. Для прошлого нужен **HTML export** из Telegram Desktop. Не предлагай «подтянуть историю через API».
 
@@ -60,6 +64,8 @@ python3 /data/studio/tools/import_telegram_html.py \
   --session-id f745d4af-b869-4b65-968c-7c726c323707 \
   --route-id aa213be8-7d0c-45bf-897f-ed4019312f44
 ```
+
+`--studio-dir /data/studio` обязателен: так запись попадает в **canonical workspace** бота (см. выше). На хосте SSH-запуск — только с путём `workspace-data/<bot_id>/studio` из **`deploy/studio-jarvis-native/RUNBOOK.md`** §8.1, **не** с `memoh_memoh_studio` без явной проверки mounts.
 
 Если пользователь **не указал** конкретный `source_id`, а чат новый:
 

@@ -9,7 +9,13 @@ Overlay для учёта лидов и отчётов без правок Memoh
 | `/data/studio/stat_sources.json` | Реестр stat-чатов: `type`, `session_id`, `report_visibility`, команды. |
 | `/data/studio/events/leads-YYYY-MM-DD.jsonl` | События за календарный день (одна строка = один JSON). **Не** Memory. |
 
-В Docker на типичном деплое volume **`memoh_memoh_studio`** смонтирован в контейнер как **`/data/studio`**.
+В контейнере агента **`/data/studio`** — это **workspace bridge** к каталогу бота на хосте. **Canonical SoT на хосте (типичный Docker Compose Memoh):**
+
+`/var/lib/docker/volumes/memoh_memoh_data/_data/workspace-data/<bot_id>/studio`
+
+Отдельный volume **`memoh_memoh_studio`**, смонтированный в **`memoh-server`** как `/data/studio`, **часто не совпадает** с деревом, которое видит Jarvis через Files/read для того же бота. **Не используйте `memoh_memoh_studio/_data` как SoT для импорта/отчётов**, пока не проверите через **Files/read**, что это действительно тот же путь.
+
+Импорт Telegram HTML и любые правки `stat_sources.json` / `events/leads-*.jsonl` должны выполняться с **`--studio-dir`**, указывающим на **canonical workspace-data** (или с эквивалентным `/data/studio` внутри контейнера агента через `exec` — см. skill **`studio-telegram-import`**).
 
 ## 2. Зарегистрировать новый stat-чат
 
@@ -70,6 +76,14 @@ Overlay для учёта лидов и отчётов без правок Memoh
 2. **⋯** (меню) → **Export chat history**.
 3. Формат: **HTML** (не JSON для этого overlay).
 4. Сохраните папку; нужен файл **`messages.html`**.
+
+**Перед импортом (обязательно):**
+
+1. Через **Files/read** убедитесь, что **`/data/studio/events/state/events_active.json`** и **`/data/studio/stat_sources.json`** читаются там, куда вы пишете.
+2. Запускайте importer с **`--studio-dir /data/studio`** в **`exec`** (внутри контейнера агента) **или** на хосте с путём  
+   `/var/lib/docker/volumes/memoh_memoh_data/_data/workspace-data/<bot_id>/studio`.  
+   **Не** используйте по умолчанию `memoh_memoh_studio/_data` для SoT этого бота без проверки bridge.
+3. Скрипт **`import_telegram_html.py`** откажется писать в путь с **`memoh_memoh_studio`**, если не передан **`--allow-noncanonical-studio-dir`** (аварийный режим).
 
 ### 2) Как загрузить Jarvis (Memoh Web UI)
 
