@@ -106,8 +106,11 @@ Overlay для учёта лидов и отчётов без правок Memoh
    - читает заголовок чата из `page_header` и сопоставляет с **`stat_sources.json`** (или создаёт **draft** при `--auto-register-draft`);
    - пишет нормализованные сообщения в  
      **`/data/studio/imports/telegram/<slug>/messages.normalized.jsonl`**;
-   - пишет события в **`/data/studio/events/leads-YYYY-MM-DD.jsonl`** (`target_lead`, `summary_report`, `operational_note`), **без дублирования** по `event_id`;
+   - пишет события в **`/data/studio/events/leads-YYYY-MM-DD.jsonl`** (`target_lead`, `summary_report`, `operational_note`), **без дублирования** по `event_id` и **без смысловых дублей** `target_lead` (дополнительно по ключу `source_id` + `date` + телефон или имя+город);
    - создаёт **`import-summary.json`** рядом с нормализованным JSONL.
+
+Одноразовая чистка уже записанного дня на сервере:  
+`python3 /data/studio/tools/import_telegram_html.py --dedupe-jsonl /data/studio/events/leads-YYYY-MM-DD.jsonl` (из контейнера агента или с host-путём к canonical `studio/events/...`).
 
 ### 4) Как Jarvis «понимает» чат
 

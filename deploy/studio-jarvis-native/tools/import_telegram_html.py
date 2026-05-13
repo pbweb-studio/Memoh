@@ -5,9 +5,13 @@ Deterministic Telegram Desktop HTML chat export â†’ Studio JSONL importer.
 Writes:
   <studio-dir>/imports/telegram/<slug>/messages.normalized.jsonl
   <studio-dir>/imports/telegram/<slug>/import-summary.json
-  <studio-dir>/events/leads-YYYY-MM-DD.jsonl (upsert by event_id)
+  <studio-dir>/events/leads-YYYY-MM-DD.jsonl (upsert by event_id + semantic lead key)
 
 Does not modify events/state/events_active.json or people.md.
+
+target_lead rows for the same calendar day are collapsed by semantic key
+(source_id + date + normalized phone, or name+city if no phone, else hash of raw text)
+so manual evt_* / lead-* rows do not duplicate telegram-message-* for the same person.
 
 Host note (Docker): Jarvis Files/read maps container /data/studio to the bot workspace
 .../memoh_memoh_data/_data/workspace-data/<bot_id>/studio. The separate volume
@@ -17,6 +21,7 @@ memoh_memoh_studio is not bot-visible SoT unless mounts are explicitly unified â
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html as html_lib
 import json
 import re
@@ -376,6 +381,115 @@ def write_jsonl_merged(path: Path, events_by_id: dict[str, dict[str, Any]]) -> N
     path.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
 
 
+def _norm_semantic_token(value: Any) -> str:
+    s = unicodedata.normalize("NFKC", str(value or "").strip()).casefold()
+    s = re.sub(r"\s+", " ", s)
+    return s
+
+
+def semantic_lead_key(ev: dict[str, Any]) -> str:
+    """Stable key: source_id + date + phone, else name+city, else raw hash."""
+    if ev.get("event_type") != "target_lead":
+        return f"_non_target|{ev.get('event_id')}"
+    sid = str(ev.get("source_id") or "").strip() or "_no_source"
+    day = str(ev.get("date") or "").strip() or "_no_date"
+    phone = ev.get("phone")
+    if phone is not None and str(phone).strip():
+        digits = re.sub(r"\D", "", str(phone))
+        if len(digits) == 11 and digits.startswith("8"):
+            digits = "7" + digits[1:]
+        return f"tl|{sid}|{day}|p|{digits}"
+    name = _norm_semantic_token(ev.get("name"))
+    city = _norm_semantic_token(ev.get("city"))
+    if name or city:
+        return f"tl|{sid}|{day}|nc|{name}|{city}"
+    raw = _norm_semantic_token(ev.get("raw_text"))
+    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:24]
+    return f"tl|{sid}|{day}|h|{digest}"
+
+
+def _lead_completeness_rank(ev: dict[str, Any]) -> tuple[int, int, int]:
+    """Sort key: higher tuple = richer record."""
+    keys = (
+        "phone",
+        "name",
+        "city",
+        "status",
+        "call_when",
+        "comment",
+        "raw_text",
+        "session_id",
+        "route_id",
+        "telegram_chat_id",
+        "import_source",
+        "telegram_message_id",
+        "source_type",
+        "author",
+    )
+    filled = 0
+    for k in keys:
+        v = ev.get(k)
+        if v is None or v == "" or v is False:
+            continue
+        filled += 1
+    raw_len = len(str(ev.get("raw_text") or ""))
+    eid = str(ev.get("event_id") or "")
+    kind = 0
+    if eid.startswith("telegram-message-"):
+        kind = 2
+    elif eid.startswith("evt_") or eid.startswith("lead-"):
+        kind = 1
+    return (filled, kind, raw_len)
+
+
+def richer_target_lead(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
+    ra, rb = _lead_completeness_rank(a), _lead_completeness_rank(b)
+    if rb > ra:
+        return b
+    if rb < ra:
+        return a
+    if str(b.get("event_id", "")).startswith("telegram-message-"):
+        return b
+    return a
+
+
+def dedupe_semantic_target_leads(events_by_id: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Keep non-target_lead rows; collapse target_lead rows sharing semantic_lead_key (richest wins)."""
+    non_target: dict[str, dict[str, Any]] = {}
+    targets: list[dict[str, Any]] = []
+    for eid, ev in events_by_id.items():
+        if ev.get("event_type") == "target_lead":
+            targets.append(ev)
+        else:
+            non_target[eid] = ev
+    by_sk: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for ev in targets:
+        by_sk[semantic_lead_key(ev)].append(ev)
+    merged_targets: dict[str, dict[str, Any]] = {}
+    for rows in by_sk.values():
+        chosen = rows[0]
+        for r in rows[1:]:
+            chosen = richer_target_lead(chosen, r)
+        merged_targets[str(chosen["event_id"])] = chosen
+    out = {**non_target, **merged_targets}
+    return out
+
+
+def dedupe_jsonl_file(path: Path) -> tuple[Path, int, int]:
+    """Backup path, before count, after count (target_lead only)."""
+    if not path.is_file():
+        raise FileNotFoundError(path)
+    stamp = _now_stamp()
+    bak = path.with_suffix(path.suffix + f".bak-{stamp}-before-dedupe")
+    shutil.copy2(path, bak)
+    cur = load_jsonl_events_by_id(path)
+    before_tl = sum(1 for v in cur.values() if v.get("event_type") == "target_lead")
+    new = dedupe_semantic_target_leads(cur)
+    after_tl = sum(1 for v in new.values() if v.get("event_type") == "target_lead")
+    write_jsonl_merged(path, new)
+    return bak, before_tl, after_tl
+
+
 def match_source(
     registry: dict[str, Any],
     *,
@@ -477,10 +591,14 @@ def main() -> int:
             "unless you pass --allow-noncanonical-studio-dir and verified mounts."
         ),
     )
-    ap.add_argument("--input", required=True, help="Path to messages.html")
+    ap.add_argument(
+        "--dedupe-jsonl",
+        metavar="FILE",
+        help="Rewrite FILE: collapse semantic duplicate target_lead rows (backup .bak-*-before-dedupe); exit.",
+    )
+    ap.add_argument("--input", help="Path to messages.html (required unless --dedupe-jsonl)")
     ap.add_argument(
         "--studio-dir",
-        required=True,
         help="Studio root (must match bot-visible /data/studio: stat_sources.json, events/)",
     )
     ap.add_argument("--source-type", default="leads")
@@ -495,6 +613,21 @@ def main() -> int:
         help="Allow studio dir under memoh_memoh_studio Docker volume (discouraged; verify mounts).",
     )
     args = ap.parse_args()
+
+    if args.dedupe_jsonl:
+        p = Path(args.dedupe_jsonl).resolve()
+        try:
+            bak, before_tl, after_tl = dedupe_jsonl_file(p)
+        except FileNotFoundError:
+            print(f"ERROR: file not found: {p}", file=sys.stderr)
+            return 2
+        print(json.dumps({"backup": str(bak), "target_lead_before": before_tl, "target_lead_after": after_tl}, indent=2))
+        return 0
+
+    if not args.input:
+        ap.error("--input is required unless --dedupe-jsonl is set")
+    if not args.studio_dir:
+        ap.error("--studio-dir is required unless --dedupe-jsonl is set")
 
     input_path = Path(args.input).resolve()
     studio = Path(args.studio_dir).resolve()
@@ -692,8 +825,10 @@ def main() -> int:
 
         out_path = studio / "events" / f"leads-{day}.jsonl"
         existing = load_jsonl_events_by_id(out_path)
+        existing = dedupe_semantic_target_leads(existing)
         for ev in evs:
             existing[str(ev["event_id"])] = ev
+        existing = dedupe_semantic_target_leads(existing)
         if out_path.exists():
             b = backup_file(out_path)
             if b:

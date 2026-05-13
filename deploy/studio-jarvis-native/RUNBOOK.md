@@ -117,6 +117,8 @@ python3 "${CANON}/tools/import_telegram_html.py" \
 
 Писать в **`.../memoh_memoh_studio/_data`** скрипт **отклонит**, если не передан **`--allow-noncanonical-studio-dir`** (только если вы осознанно пишете в другой mount).
 
+**Дедупликация `target_lead`:** помимо `event_id`, скрипт схлопывает строки с одним и тем же **семантическим ключом** (источник + дата + нормализованный телефон, либо имя+город без телефона), чтобы ручные `evt_*` / `lead-*` не дублировали `telegram-message-*` при повторном импорте.
+
 **Smoke:** затем в UI — «Подбей статистику целевых за …» (skill **`studio-chat-stats`**).
 
 ### Production rollout
