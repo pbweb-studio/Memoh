@@ -64,7 +64,7 @@
 
 1. **Settings** → выберите бота → **Skills** → **New Skill**.
 2. Вставьте **полный** текст `SKILL.md` из `deploy/studio-jarvis-native/skills/<name>/SKILL.md` (YAML frontmatter + тело). **Сохраните**.
-3. Повторите для имён: `studio-jarvis-behavior`, `studio-people-source`, `studio-project-registry`, `studio-daily-digest`, **`studio-chat-stats`**.
+3. Повторите для имён: `studio-jarvis-behavior`, `studio-people-source`, `studio-project-registry`, `studio-daily-digest`, **`studio-chat-stats`**, **`studio-telegram-import`**.
 4. Нажмите **Refresh** в списке skills при необходимости; в карточках должны быть бейджи **Managed** + **Effective**.
 
 **YAML:** в поле `description:` не оставляйте неэкранированный текст с двоеточием вроде `Schedule: ...` без кавычек — иначе `POST .../container/skills` вернёт `400 invalid YAML frontmatter`. Безопасно: `description: "..."`.
@@ -81,9 +81,40 @@
 
 Имеет смысл **только если** вы гарантировали, что эти же пути видны процессу, который обслуживает `container/skills` (тот же mount, что и для успешного `Read /data/studio/...`). В противном случае снова получите пустой каталог в UI — предпочитайте A или B.
 
+### 8.1. Overlay: `import_telegram_html.py` (Telegram Desktop HTML)
+
+**Назначение:** распарсить `messages.html` и записать `target_lead` / `summary_report` / `operational_note` в `/data/studio/events/leads-YYYY-MM-DD.jsonl` (идемпотентно по `event_id`).
+
+**В репозитории:** `deploy/studio-jarvis-native/tools/import_telegram_html.py`.
+
+**В рантайме (внутри контейнера агента):** `/data/studio/tools/import_telegram_html.py`. На Docker-хосте это часто тот же файл, что и  
+`/var/lib/docker/volumes/memoh_memoh_studio/_data/tools/import_telegram_html.py`.
+
+Установка на volume (без перезапуска `memoh-server`):
+
+```bash
+install -d /var/lib/docker/volumes/memoh_memoh_studio/_data/tools
+install -d /var/lib/docker/volumes/memoh_memoh_studio/_data/imports/inbox
+# скопируйте `import_telegram_html.py` из репозитория в .../_data/tools/
+```
+
+**Основной UX:** пользователь прикрепляет HTML в Web UI → в сообщении есть `<attachment path="..."/>` → managed skill **`studio-telegram-import`** ведёт к `exec python3 /data/studio/tools/import_telegram_html.py ...`. У `exec` может быть **approval** в UI — это нормально.
+
+**Fallback (нет `python3` в среде exec):** на хосте с `python3`:
+
+```bash
+python3 /var/lib/docker/volumes/memoh_memoh_studio/_data/tools/import_telegram_html.py \
+  --input /var/lib/docker/volumes/memoh_memoh_studio/_data/imports/inbox/messages.html \
+  --studio-dir /var/lib/docker/volumes/memoh_memoh_studio/_data \
+  --source-type leads \
+  --source-id <id>
+```
+
+**Smoke:** затем в UI — «Подбей статистику целевых за …» (skill **`studio-chat-stats`**).
+
 ### Production rollout
 
-На проде повторите **вариант A** (или B из защищённого пайплайна с сервисным аккаунтом): не копируйте bundle на сервер без проверки `GET .../container/skills`; после загрузки зафиксируйте в change log, что четыре skill в состоянии **effective**.
+На проде повторите **вариант A** (или B из защищённого пайплайна с сервисным аккаунтом): не копируйте bundle на сервер без проверки `GET .../container/skills`; после загрузки зафиксируйте в change log, что ключевые skills в состоянии **effective** (включая **`studio-chat-stats`** и **`studio-telegram-import`**).
 
 ## 9. Schedule — daily digest
 

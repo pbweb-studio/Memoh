@@ -34,7 +34,8 @@ Overlay для учёта лидов и отчётов без правок Memoh
 
 ## 5. Заполнить events (JSONL)
 
-- **Авто:** попросите бота в Web UI или в чате выполнить извлечение: skill использует `search_messages` и **`write`** в `/data/studio/events/leads-YYYY-MM-DD.jsonl`.
+- **Импорт Telegram HTML export:** см. раздел **«Telegram HTML export import»** ниже и managed skill **`studio-telegram-import`** (`deploy/studio-jarvis-native/skills/studio-telegram-import/SKILL.md`).
+- **Авто (из переписки Memoh):** попросите бота в Web UI или в чате выполнить извлечение: skill **`studio-chat-stats`** использует `search_messages` и **`write`** в `/data/studio/events/leads-YYYY-MM-DD.jsonl`.
 - **Ручная загрузка:** через Files создайте/вставьте строки по образцу `deploy/studio-jarvis-native/data/events/leads-2026-05-13.example.jsonl`.
 
 ## 6. Запросить отчёт
@@ -59,6 +60,68 @@ Overlay для учёта лидов и отчётов без правок Memoh
 3. **Чат не в реестре** — Jarvis не знает, что это stat-чат; выполните `/studio_init`.
 4. **Запрос из запрещённого чата** — ожидаемый отказ без цифр.
 
-## 9. Рестарт сервера
+## 9. Telegram HTML export import
+
+Используйте, когда нужна **полная прошлая история** чата. **Telegram Bot API не отдаёт старую историю** участникам как «скачать весь чат» — для прошлого нужен **экспорт из Telegram Desktop**.
+
+### 1) Как экспортировать (Telegram Desktop)
+
+1. Откройте нужный чат в **Telegram Desktop**.
+2. **⋯** (меню) → **Export chat history**.
+3. Формат: **HTML** (не JSON для этого overlay).
+4. Сохраните папку; нужен файл **`messages.html`**.
+
+### 2) Как загрузить Jarvis (Memoh Web UI)
+
+1. Откройте чат с ботом в Web UI.
+2. Прикрепите **`messages.html`** к сообщению (как файл).
+3. Напишите обычным языком, например:  
+   **«Импортируй этот экспорт Telegram как лиды»** / **«Импортируй историю чата лидоруба»**.
+
+В контекст агента попадёт путь вида **`<attachment path="/data/media/.../messages.html"/>`** — его использует skill **`studio-telegram-import`**.
+
+**Fallback (если вложение недоступно агенту):** загрузите файл через **Files** в  
+`/data/studio/imports/inbox/messages.html`  
+и напишите: **«Импортируй `/data/studio/imports/inbox/messages.html` как leads»**.
+
+### 3) Что делает Jarvis
+
+1. Проверяет, что файл похож на Telegram HTML export.
+2. Запускает **`python3 /data/studio/tools/import_telegram_html.py`** через инструмент **`exec`** (может потребоваться **approval** в UI).
+3. Скрипт:
+   - читает заголовок чата из `page_header` и сопоставляет с **`stat_sources.json`** (или создаёт **draft** при `--auto-register-draft`);
+   - пишет нормализованные сообщения в  
+     **`/data/studio/imports/telegram/<slug>/messages.normalized.jsonl`**;
+   - пишет события в **`/data/studio/events/leads-YYYY-MM-DD.jsonl`** (`target_lead`, `summary_report`, `operational_note`), **без дублирования** по `event_id`;
+   - создаёт **`import-summary.json`** рядом с нормализованным JSONL.
+
+### 4) Как Jarvis «понимает» чат
+
+По **названию** из HTML и записи в **`stat_sources.json`** (`title`, `id`, `type`, `session_id`, …). Если совпадения нет и включён draft-режим — появится запись с **`enabled: false`**, **`needs_review: true`**, полем **`import_slug`**.
+
+### 5) Где лежат результаты
+
+| Путь | Содержимое |
+|------|------------|
+| `/data/studio/imports/telegram/<slug>/messages.normalized.jsonl` | Нормализованные сообщения (одна строка = JSON). |
+| `/data/studio/imports/telegram/<slug>/import-summary.json` | Сводка импорта (числа, даты, warnings). |
+| `/data/studio/events/leads-YYYY-MM-DD.jsonl` | События для отчётов (**SoT** для цифр). |
+
+### 6) Как проверить статистику
+
+После импорта — skill **`studio-chat-stats`**, например:  
+**«Подбей статистику целевых за 13.05.2026 по чату Лидоруб PB х Бионика»**.
+
+### 7) Draft source и `needs_review`
+
+**Draft** — запись в `stat_sources.json`, которую импортёр добавил, когда не нашёл существующий чат. Она **выключена** (`enabled: false`) и помечена **`needs_review: true`**, чтобы администратор заполнил `telegram_chat_id` / `session_id` / `route_id` и включил чат.
+
+### 8) Ограничения
+
+- **Bot API** не заменяет HTML export для длинной истории.
+- Импортёр не трогает **`events/state/events_active.json`** и **`people.md`**.
+- Не храните реальные PII-выгрузки в git.
+
+## 10. Рестарт сервера
 
 При изменении только **`/data/studio/*`** и managed skills **рестарт memoh-server не обязателен**.

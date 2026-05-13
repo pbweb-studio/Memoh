@@ -7,7 +7,8 @@
 | Путь | Назначение |
 |------|------------|
 | `data/` | Примеры для **`/data/studio/`**: `people.md`, JSON-реестры, **`stat_sources.example.json`**, **`events/leads-*.example.jsonl`**. |
-| `skills/` | Шаблоны `SKILL.md` (в т.ч. **`studio-chat-stats`**) — копировать в managed skills через UI/API. |
+| `skills/` | Шаблоны `SKILL.md` (в т.ч. **`studio-chat-stats`**, **`studio-telegram-import`**) — копировать в managed skills через UI/API. |
+| `tools/` | **`import_telegram_html.py`** — детерминированный импорт Telegram Desktop HTML → JSONL (ставится в `/data/studio/tools/` на рантайме). |
 | `RUNBOOK.md` | Пошаговая настройка через UI (без секретов в тексте). |
 | `ACCEPTANCE_CHECKLIST.md` | Ручная проверка после деплоя конфигурации. |
 
