@@ -417,3 +417,42 @@ Development configuration in `devenv/`:
 ## Web Design
 
 Please refer to `./apps/web/AGENTS.md`.
+
+## Cursor Cloud specific instructions
+
+### Quick Reference
+
+- **Lint**: `golangci-lint run ./...` (Go), `pnpm lint` (ESLint/TypeScript)
+- **Test**: `pnpm test -- --run` (Vitest, 95 tests in `apps/web/`)
+- **Build**: `go build ./...` (Go), frontend builds automatically via Vite dev server
+
+### Running Services (SQLite native mode)
+
+The simplest way to run the full stack in the Cloud VM is **native mode with SQLite** (no Docker needed):
+
+1. Ensure migrations are applied:
+   ```
+   mkdir -p data/local && CONFIG_PATH="conf/app.local.toml" go run ./cmd/agent migrate up
+   ```
+2. Start the Go backend server:
+   ```
+   CONFIG_PATH="conf/app.local.toml" go run ./cmd/agent serve
+   ```
+   Server listens on `:18731`. Health check: `curl -I http://localhost:18731/health` (HEAD returns 200).
+3. Start the Vite frontend dev server:
+   ```
+   MEMOH_WEB_PROXY_TARGET="http://localhost:18731" pnpm --filter @memohai/web dev -- --host 0.0.0.0 --port 8082
+   ```
+   Web UI at `http://localhost:8082`. Proxies `/api` → backend automatically via Vite config.
+
+### Auth / Admin Credentials
+
+`conf/app.local.toml` defines default admin: `admin` / `admin123`. Login endpoint: `POST /auth/login` (no `/api` prefix on direct server access).
+
+### Gotchas
+
+- The server health endpoint only responds to **HEAD** requests (`/health`). GET returns 405.
+- Routes are registered without `/api` prefix on the Go server directly; the `/api` prefix is stripped by the Vite proxy (`/api/bots` → server's `/bots`).
+- Qdrant is optional for basic development; the server starts fine without it. Memory features (dense/sparse search) will fail at runtime until Qdrant is available.
+- `pnpm install` may warn about `vue-demi` build scripts; this is benign and can be ignored.
+- Go 1.25.7 is used by the go toolchain wrapper even if mise installs 1.25.6; both work correctly with `go.mod`'s `go 1.25.7` directive.
